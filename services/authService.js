@@ -3,6 +3,7 @@ const { sendEmail, emailTemplates } = require('../utils/email');
 const { addToBlacklist } = require('../utils/tokenBlacklist');
 const userService = require('./userService');
 const { ERROR_MESSAGES, SUCCESS_MESSAGES } = require('../constants/messages');
+const { configDotenv } = require('dotenv');
 
 // Send welcome email (non-blocking)
 const sendWelcomeEmail = async (email, firstName) => {
@@ -36,22 +37,16 @@ const registerUser = async (userData) => {
         firstName,
         lastName
     });
-
-    // Generate token
-    const token = generateToken({ userId: user._id });
-
     // Send welcome email (non-blocking)
     sendWelcomeEmail(user.email, user.firstName);
 
     return {
         message: SUCCESS_MESSAGES.USER_REGISTERED,
-        token,
-        user: userService.getUserProfileData(user)
     };
 };
 
 // Login user
-const loginUser = async (credentials) => {
+const loginUser = async (res, credentials) => {
     const { email, password } = credentials;
 
     // Find user by email
@@ -72,9 +67,17 @@ const loginUser = async (credentials) => {
     // Generate token
     const token = generateToken({ userId: user._id });
 
+    const isProduction = configDotenv().parsed.NODE_ENV === 'production';
+
+    res.cookie('token', token, {
+        httpOnly: true,
+        secure: isProduction,
+        sameSite: isProduction ? 'None' : 'Lax',
+        maxAge: 1000 * 60 * 60 * 12 // 12 hours
+    });
+
     return {
         message: SUCCESS_MESSAGES.LOGIN_SUCCESSFUL,
-        token,
         user: userService.getUserProfileData(user)
     };
 };

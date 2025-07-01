@@ -18,10 +18,7 @@ const createRedisClient = () => {
             db: process.env.REDIS_DB || 0,
             retry_unfulfilled_commands: false,
             connect_timeout: 3000,
-            lazyConnect: true,
-            socket: {
-                reconnectStrategy: false // Disable automatic reconnection
-            }
+            lazyConnect: true
         });
 
         // Handle Redis connection events
@@ -50,7 +47,7 @@ const createRedisClient = () => {
 // Initialize Redis client
 createRedisClient();
 
-// Connect to Redis with timeout (no infinite retries)
+// Connect to Redis with timeout
 const connectRedis = async () => {
     if (!client || isRedisAvailable) return;
 
@@ -69,6 +66,9 @@ const connectRedis = async () => {
     }
 };
 
+// Initialize Redis connection
+connectRedis();
+
 // Get token expiration from JWT
 const getTokenExpiration = (token) => {
     try {
@@ -78,6 +78,7 @@ const getTokenExpiration = (token) => {
         }
         return null;
     } catch (error) {
+        console.error('Error decoding token:', error);
         return null;
     }
 };
@@ -85,69 +86,66 @@ const getTokenExpiration = (token) => {
 // Add token to blacklist with TTL
 const addToBlacklist = async (token) => {
     try {
-        // Try Redis first (only if available)
-        if (isRedisAvailable && client) {
-            const expiration = getTokenExpiration(token);
-            const key = `blacklist:${token}`;
+        await connectRedis();
 
-            if (expiration) {
-                const ttl = expiration - Math.floor(Date.now() / 1000);
-                if (ttl > 0) {
-                    await client.setEx(key, ttl, 'blacklisted');
-                    return;
-                }
-            } else {
-                await client.setEx(key, 7 * 24 * 60 * 60, 'blacklisted');
-                return;
+        const expiration = getTokenExpiration(token);
+        const key = `blacklist:${token}`;
+
+        if (expiration) {
+            // Set TTL to token expiration time
+            const ttl = expiration - Math.floor(Date.now() / 1000);
+            if (ttl > 0) {
+                await client.setEx(key, ttl, 'blacklisted');
             }
+        } else {
+            // Default TTL of 2 days if no expiration found
+            await client.setEx(key, 2 * 24 * 60 * 60, 'blacklisted');
         }
-    } catch (error) {
-        isRedisAvailable = false;
-    }
 
-    // Fallback to in-memory storage
-    memoryBlacklist.add(token);
+        console.log('Token added to blacklist');
+    } catch (error) {
+        console.error('Error adding token to blacklist:', error);
+        throw error;
+    }
 };
 
 // Check if token is blacklisted
 const isTokenBlacklisted = async (token) => {
     try {
-        // Try Redis first (only if available)
-        if (isRedisAvailable && client) {
-            const key = `blacklist:${token}`;
-            const result = await client.get(key);
-            return result !== null;
-        }
-    } catch (error) {
-        isRedisAvailable = false;
-    }
+        await connectRedis();
 
-    // Fallback to in-memory storage
-    return memoryBlacklist.has(token);
+        const key = `blacklist:${token}`;
+        const result = await client.get(key);
+        return result !== null;
+    } catch (error) {
+        console.error('Error checking token blacklist:', error);
+        // Return false on error to avoid blocking valid tokens
+        return false;
+    }
 };
 
 // Get blacklist size (for monitoring)
 const getBlacklistSize = async () => {
     try {
-        if (isRedisAvailable && client) {
-            const keys = await client.keys('blacklist:*');
-            return keys.length;
-        }
-    } catch (error) {
-        isRedisAvailable = false;
-    }
+        await connectRedis();
 
-    return memoryBlacklist.size;
+        const keys = await client.keys('blacklist:*');
+        return keys.length;
+    } catch (error) {
+        console.error('Error getting blacklist size:', error);
+        return 0;
+    }
 };
 
-// Clean up expired tokens
+// Clean up expired tokens (Redis handles this automatically with TTL)
 const cleanupExpiredTokens = async () => {
+    // Redis automatically removes expired keys, so this is just for monitoring
     try {
         const size = await getBlacklistSize();
-        const storage = isRedisAvailable ? 'Redis' : 'in-memory';
-        console.log(`Current blacklist size: ${size} tokens (${storage})`);
+        console.log(`Current blacklist size: ${size} tokens`);
         return size;
     } catch (error) {
+        console.error('Error during cleanup check:', error);
         return 0;
     }
 };
@@ -155,12 +153,12 @@ const cleanupExpiredTokens = async () => {
 // Graceful shutdown
 const closeConnection = async () => {
     try {
-        if (client && client.isOpen) {
+        if (client.isOpen) {
             await client.quit();
             console.log('Redis connection closed');
         }
     } catch (error) {
-        // Ignore errors during shutdown
+        console.error('Error closing Redis connection:', error);
     }
 };
 

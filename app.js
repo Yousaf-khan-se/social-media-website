@@ -4,6 +4,7 @@ const cookieParser = require('cookie-parser');
 const mongoose = require('mongoose');
 const ResponseHandler = require('./utils/responseHandler');
 require('dotenv').config();
+const logReqest = require('./middleware/logRequest');
 
 const app = express();
 
@@ -19,15 +20,13 @@ app.use(cors(corsOptions));
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 app.use(cookieParser());
+app.use(logReqest)
 
 // Database connection
 const connectDB = async () => {
     try {
         if (mongoose.connection.readyState === 0) {
-            await mongoose.connect(process.env.MONGODB_URI, {
-                useNewUrlParser: true,
-                useUnifiedTopology: true,
-            });
+            await mongoose.connect(process.env.MONGODB_URI);
             console.log('MongoDB connected successfully');
         }
     } catch (error) {

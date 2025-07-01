@@ -40,7 +40,7 @@ const login = async (req, res) => {
         }
 
         // Login user through service
-        const result = await authService.loginUser(req.body);
+        const result = await authService.loginUser(res, req.body);
 
         return ResponseHandler.success(res, result);
 
