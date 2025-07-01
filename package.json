@@ -13,7 +13,10 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "dev": "nodemon index.js",
-    "start": "node index.js"
+    "start": "node index.js",
+    "build": "echo \"Build completed\"",
+    "deploy": "echo \"Deploy to your serverless platform\"",
+    "seed": "node scripts/seed.js"
   },
   "dependencies": {
     "bcrypt": "^6.0.0",
@@ -24,6 +27,8 @@
     "jsonwebtoken": "^9.0.2",
     "mongoose": "^8.16.1",
     "nodemailer": "^7.0.4",
-    "nodemon": "^3.1.10"
+    "nodemon": "^3.1.10",
+    "redis": "^4.6.0",
+    "serverless-http": "^3.2.0"
   }
 }

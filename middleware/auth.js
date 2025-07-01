@@ -1,0 +1,44 @@
+const jwt = require('jsonwebtoken');
+const { ERROR_MESSAGES, HTTP_STATUS } = require('../constants/messages');
+const ResponseHandler = require('../utils/responseHandler');
+const { isTokenBlacklisted } = require('../utils/tokenBlacklist');
+
+const authenticateToken = async (req, res, next) => {
+    const authHeader = req.headers['authorization'];
+    const token = authHeader && authHeader.split(' ')[1]; // Bearer TOKEN
+
+    if (!token) {
+        return ResponseHandler.unauthorized(res, ERROR_MESSAGES.ACCESS_TOKEN_REQUIRED);
+    }
+
+    try {
+        // Check if token is blacklisted
+        const isBlacklisted = await isTokenBlacklisted(token);
+        if (isBlacklisted) {
+            return ResponseHandler.unauthorized(res, 'Token has been invalidated');
+        }
+
+        jwt.verify(token, process.env.JWT_SECRET, (err, user) => {
+            if (err) {
+                return ResponseHandler.error(res, ERROR_MESSAGES.INVALID_TOKEN, HTTP_STATUS.FORBIDDEN);
+            }
+            req.user = user;
+            req.token = token; // Store token for logout
+            next();
+        });
+    } catch (error) {
+        console.error('Error checking token blacklist:', error);
+        return ResponseHandler.error(res, 'Authentication error', HTTP_STATUS.INTERNAL_SERVER_ERROR);
+    }
+};
+
+const generateToken = (payload) => {
+    return jwt.sign(payload, process.env.JWT_SECRET, {
+        expiresIn: process.env.JWT_EXPIRES_IN || '7d'
+    });
+};
+
+module.exports = {
+    authenticateToken,
+    generateToken
+};
