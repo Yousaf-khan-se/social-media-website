@@ -4,7 +4,7 @@ const cookieParser = require('cookie-parser');
 const mongoose = require('mongoose');
 const ResponseHandler = require('./utils/responseHandler');
 require('dotenv').config();
-const logReqest = require('./middleware/logRequest');
+const logRequest = require('./middleware/logRequest');
 
 const app = express();
 
@@ -20,7 +20,7 @@ app.use(cors(corsOptions));
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 app.use(cookieParser());
-app.use(logReqest)
+app.use(logRequest);
 
 // Database connection
 const connectDB = async () => {
