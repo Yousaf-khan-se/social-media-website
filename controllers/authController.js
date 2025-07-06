@@ -60,7 +60,7 @@ const login = async (req, res) => {
 const getProfile = async (req, res) => {
     try {
         const result = await authService.getUserProfile(req.user.userId);
-
+        console.log('Profile fetched successfully:', result);
         return ResponseHandler.success(res, result);
 
     } catch (error) {
