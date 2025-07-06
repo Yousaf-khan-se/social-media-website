@@ -9,6 +9,21 @@ const logResponse = require('./middleware/logResponse');
 
 const app = express();
 
+// Simple CORS configuration
+const getAllowedOrigins = () => {
+    const origins = [];
+
+    // Add frontend URL if set
+    if (process.env.FRONTEND_URL) {
+        origins.push(process.env.FRONTEND_URL);
+    }
+
+    // Add localhost for development
+    origins.push('http://localhost:5173', 'http://localhost:3000', 'https://social-media-website-frontend-pied.vercel.app');
+
+    return origins;
+};
+
 // Simple CORS setup
 app.use(cors({
     origin: function (origin, callback) {

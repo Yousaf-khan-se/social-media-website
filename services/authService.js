@@ -69,10 +69,6 @@ const loginUser = async (res, credentials) => {
     // Generate token
     const token = generateToken({ userId: user._id });
 
-    const origin = req.get('origin') || req.get('referer') || '';
-    const isFromLocalhost = origin.includes('localhost') || origin.includes('127.0.0.1');
-    const isProduction = process.env.NODE_ENV === 'production';
-
     res.cookie('token', token, {
         httpOnly: true,
         secure: isProduction,
