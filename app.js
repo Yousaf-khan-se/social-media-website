@@ -30,6 +30,7 @@ app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 app.use(cookieParser());
 app.use(logRequest);
+app.use(logResponse);
 
 // Database connection
 const connectDB = async () => {
@@ -84,8 +85,5 @@ app.use((error, req, res, next) => {
 app.use('*', (req, res) => {
     return ResponseHandler.notFound(res, `Route ${req.method} ${req.originalUrl} not found`);
 });
-
-app.use(logResponse);
-
 
 module.exports = app;
