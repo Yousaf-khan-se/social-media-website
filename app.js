@@ -52,7 +52,8 @@ connectDB();
 app.get('/', (req, res) => {
     return ResponseHandler.success(res, {
         message: 'Social Media Platform API',
-        status: 'Server is running'
+        status: 'Server is running',
+        environment: process.env.NODE_ENV
     });
 });
 
