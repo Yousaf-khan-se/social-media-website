@@ -14,11 +14,12 @@ https://social-media-website-lovat-gamma.vercel.app/
 |--------|----------|-------------|
 | `POST` | `/api/auth/register` | Register a new user |
 | `POST` | `/api/auth/login` | Login user |
+| `POST` | `/api/auth/refresh` | Refresh JWT token |
+| `POST` | `/api/auth/forgot-password` | Request password reset |
+| `POST` | `/api/auth/reset-password` | Reset password with token |
 | `GET` | `/api/auth/me` | Get current user profile |
 | `POST` | `/api/auth/logout` | Logout user |
-| `POST` | `/api/auth/refresh` | needs proper refresh token logic |
-| `POST` | `/api/auth/forgot-password` | needs email sending |
-| `POST` | `/api/auth/reset-password` | needs reset token logic |
+| `POST` | `/api/auth/change-password` | Change user password |
 
 ### **Posts Routes** (`/api/posts`)
 | Method | Endpoint | Description |
@@ -38,9 +39,9 @@ https://social-media-website-lovat-gamma.vercel.app/
 
 ## 📋 Route Summary
 - **Total Base Routes**: 2
-- **Authentication Routes**: 4
+- **Authentication Routes**: 8
 - **Posts Routes**: 10
-- **Total Active Routes**: 16
+- **Total Active Routes**: 20
 
 ## 🔒 Authentication Required
-All routes under `/api/posts` and `/api/auth/me`, `/api/auth/logout` require JWT authentication via:
+All routes under `/api/posts` and protected auth routes (`/api/auth/me`, `/api/auth/logout`, `/api/auth/change-password`) require JWT authentication via:
