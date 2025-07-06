@@ -9,23 +9,30 @@ const logResponse = require('./middleware/logResponse');
 
 const app = express();
 
-// CORS configuration
-const corsOptions = {
-    origin: [
-        process.env.CLIENT_URL,
-        'http://39.49.62.51:5174',
-        'http://39.49.62.51:5173',
-        'http://116.71.190.250:5174',
-        'http://116.71.190.250:5173',
-        'http://localhost:5173',
-        'http://localhost:5174'
-    ],
-    credentials: true,
-    optionsSuccessStatus: 200
-};
+// Simple CORS setup
+app.use(cors({
+    origin: function (origin, callback) {
+        const allowedOrigins = getAllowedOrigins();
 
-// Middleware
-app.use(cors(corsOptions));
+        // Allow requests with no origin (mobile apps, Postman, etc.)
+        if (!origin) return callback(null, true);
+
+        // Allow if origin is in allowed list
+        if (allowedOrigins.includes(origin)) {
+            return callback(null, true);
+        }
+
+        // In production without FRONTEND_URL, allow all HTTPS origins
+        if (process.env.NODE_ENV === 'production' && !process.env.FRONTEND_URL) {
+            if (origin.startsWith('https://')) {
+                return callback(null, true);
+            }
+        }
+
+        callback(new Error('Not allowed by CORS'));
+    },
+    credentials: true
+}));
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 app.use(cookieParser());

@@ -45,6 +45,8 @@ const registerUser = async (userData) => {
     };
 };
 
+const isProduction = process.env.NODE_ENV === 'production';
+
 // Login user
 const loginUser = async (res, credentials) => {
     const { email, password } = credentials;
@@ -71,24 +73,12 @@ const loginUser = async (res, credentials) => {
     const isFromLocalhost = origin.includes('localhost') || origin.includes('127.0.0.1');
     const isProduction = process.env.NODE_ENV === 'production';
 
-    // Cookie settings based on request origin
-    const cookieSettings = {
+    res.cookie('token', token, {
         httpOnly: true,
-        maxAge: 1000 * 60 * 60 * 12, // 12 hours
-        secure: false, // Start with false
-        sameSite: 'Lax' // Start with Lax
-    };
-
-    // Adjust settings for cross-origin requests (localhost → production)
-    if (isFromLocalhost && isProduction) {
-        cookieSettings.secure = false; // Localhost uses HTTP
-        cookieSettings.sameSite = 'None'; // Required for cross-origin
-    } else if (isProduction && !isFromLocalhost) {
-        cookieSettings.secure = true; // Production to production uses HTTPS
-        cookieSettings.sameSite = 'Lax'; // Same-origin is fine
-    }
-
-    res.cookie('token', token, cookieSettings);
+        secure: isProduction,
+        sameSite: isProduction ? 'None' : 'Lax',
+        maxAge: 1000 * 60 * 60 * 12 // 12 hours
+    });
 
     return {
         message: SUCCESS_MESSAGES.LOGIN_SUCCESSFUL,
