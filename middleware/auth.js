@@ -5,7 +5,7 @@ const { isTokenBlacklisted } = require('../utils/tokenBlacklist');
 
 const authenticateToken = async (req, res, next) => {
     const authHeader = req.headers['authorization'];
-    const token = authHeader && authHeader.split(' ')[1]; // Bearer TOKEN
+    const token = req.cookies.token || (authHeader && authHeader.split(' ')[1]); // Bearer TOKEN
 
     if (!token) {
         return ResponseHandler.unauthorized(res, ERROR_MESSAGES.ACCESS_TOKEN_REQUIRED);
