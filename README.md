@@ -16,6 +16,9 @@ https://social-media-website-lovat-gamma.vercel.app/
 | `POST` | `/api/auth/login` | Login user |
 | `GET` | `/api/auth/me` | Get current user profile |
 | `POST` | `/api/auth/logout` | Logout user |
+| `POST` | `/api/auth/refresh` | needs proper refresh token logic |
+| `POST` | `/api/auth/forgot-password` | needs email sending |
+| `POST` | `/api/auth/reset-password` | needs reset token logic |
 
 ### **Posts Routes** (`/api/posts`)
 | Method | Endpoint | Description |
