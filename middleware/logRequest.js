@@ -1,4 +1,7 @@
 module.exports = (req, res, next) => {
+    // Add timestamp for response time calculation
+    req.startTime = Date.now();
+
     console.log('🟡 Incoming Request Info');
 
     console.log(`➡️ ${req.method} ${req.originalUrl}`);

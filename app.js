@@ -5,6 +5,7 @@ const mongoose = require('mongoose');
 const ResponseHandler = require('./utils/responseHandler');
 require('dotenv').config();
 const logRequest = require('./middleware/logRequest');
+const logResponse = require('./middleware/logResponse');
 
 const app = express();
 
@@ -83,5 +84,8 @@ app.use((error, req, res, next) => {
 app.use('*', (req, res) => {
     return ResponseHandler.notFound(res, `Route ${req.method} ${req.originalUrl} not found`);
 });
+
+app.use(logResponse);
+
 
 module.exports = app;
