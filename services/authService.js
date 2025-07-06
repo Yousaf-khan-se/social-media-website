@@ -67,14 +67,28 @@ const loginUser = async (res, credentials) => {
     // Generate token
     const token = generateToken({ userId: user._id });
 
-    const isProduction = configDotenv().parsed.NODE_ENV === 'production';
+    const origin = req.get('origin') || req.get('referer') || '';
+    const isFromLocalhost = origin.includes('localhost') || origin.includes('127.0.0.1');
+    const isProduction = process.env.NODE_ENV === 'production';
 
-    res.cookie('token', token, {
+    // Cookie settings based on request origin
+    const cookieSettings = {
         httpOnly: true,
-        secure: isProduction,
-        sameSite: isProduction ? 'None' : 'Lax',
-        maxAge: 1000 * 60 * 60 * 12 // 12 hours
-    });
+        maxAge: 1000 * 60 * 60 * 12, // 12 hours
+        secure: false, // Start with false
+        sameSite: 'Lax' // Start with Lax
+    };
+
+    // Adjust settings for cross-origin requests (localhost → production)
+    if (isFromLocalhost && isProduction) {
+        cookieSettings.secure = false; // Localhost uses HTTP
+        cookieSettings.sameSite = 'None'; // Required for cross-origin
+    } else if (isProduction && !isFromLocalhost) {
+        cookieSettings.secure = true; // Production to production uses HTTPS
+        cookieSettings.sameSite = 'Lax'; // Same-origin is fine
+    }
+
+    res.cookie('token', token, cookieSettings);
 
     return {
         message: SUCCESS_MESSAGES.LOGIN_SUCCESSFUL,
