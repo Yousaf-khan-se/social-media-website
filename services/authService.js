@@ -109,10 +109,73 @@ const logoutUser = async (token) => {
     }
 };
 
+// Refresh JWT token
+const refreshToken = async (refreshToken) => {
+    // Note: This is a placeholder - you'll need to implement refresh token logic
+    // This would typically verify the refresh token and issue a new access token
+    throw new Error('Refresh token functionality not yet implemented');
+};
+
+// Forgot password
+const forgotPassword = async (email) => {
+    try {
+        const user = await User.findOne({ email });
+        if (!user) {
+            // Don't reveal if email exists for security
+            return { message: 'If email exists, password reset instructions have been sent' };
+        }
+
+        // Generate reset token (you'll need to implement this)
+        // Send email with reset link (you'll need to implement this)
+        return { message: 'Password reset instructions sent to email' };
+    } catch (error) {
+        throw error;
+    }
+};
+
+// Reset password
+const resetPassword = async (token, newPassword) => {
+    // Note: This is a placeholder - you'll need to implement reset token logic
+    // This would typically verify the reset token and update the password
+    throw new Error('Reset password functionality not yet implemented');
+};
+
+// Change password
+const changePassword = async (userId, currentPassword, newPassword) => {
+    try {
+        const user = await User.findById(userId);
+        if (!user) {
+            throw new Error('User not found');
+        }
+
+        // Verify current password
+        const isCurrentPasswordValid = await bcrypt.compare(currentPassword, user.password);
+        if (!isCurrentPasswordValid) {
+            throw new Error('Invalid current password');
+        }
+
+        // Hash new password
+        const saltRounds = parseInt(process.env.BCRYPT_SALT_ROUNDS) || 12;
+        const hashedNewPassword = await bcrypt.hash(newPassword, saltRounds);
+
+        // Update password
+        user.password = hashedNewPassword;
+        await user.save();
+
+        return { message: 'Password changed successfully' };
+    } catch (error) {
+        throw error;
+    }
+};
+
 module.exports = {
     registerUser,
     loginUser,
     getUserProfile,
     logoutUser,
-    sendWelcomeEmail
+    sendWelcomeEmail,
+    refreshToken,
+    forgotPassword,
+    resetPassword,
+    changePassword
 };

@@ -88,9 +88,75 @@ const logout = async (req, res) => {
     }
 };
 
+// Refresh JWT token
+const refreshToken = async (req, res) => {
+    try {
+        const result = await authService.refreshToken(req.body.refreshToken);
+        return ResponseHandler.success(res, result);
+    } catch (error) {
+        console.error('Token refresh error:', error);
+        return ResponseHandler.unauthorized(res, 'Invalid refresh token');
+    }
+};
+
+// Forgot password
+const forgotPassword = async (req, res) => {
+    try {
+        const { email } = req.body;
+        if (!email) {
+            return ResponseHandler.badRequest(res, 'Email is required');
+        }
+
+        const result = await authService.forgotPassword(email);
+        return ResponseHandler.success(res, result);
+    } catch (error) {
+        console.error('Forgot password error:', error);
+        return ResponseHandler.internalError(res, 'Failed to process password reset request');
+    }
+};
+
+// Reset password
+const resetPassword = async (req, res) => {
+    try {
+        const { token, newPassword } = req.body;
+        if (!token || !newPassword) {
+            return ResponseHandler.badRequest(res, 'Token and new password are required');
+        }
+
+        const result = await authService.resetPassword(token, newPassword);
+        return ResponseHandler.success(res, result);
+    } catch (error) {
+        console.error('Reset password error:', error);
+        return ResponseHandler.badRequest(res, 'Invalid or expired reset token');
+    }
+};
+
+// Change password
+const changePassword = async (req, res) => {
+    try {
+        const { currentPassword, newPassword } = req.body;
+        if (!currentPassword || !newPassword) {
+            return ResponseHandler.badRequest(res, 'Current password and new password are required');
+        }
+
+        const result = await authService.changePassword(req.user.userId, currentPassword, newPassword);
+        return ResponseHandler.success(res, result);
+    } catch (error) {
+        console.error('Change password error:', error);
+        if (error.message === 'Invalid current password') {
+            return ResponseHandler.badRequest(res, 'Current password is incorrect');
+        }
+        return ResponseHandler.internalError(res, 'Failed to change password');
+    }
+};
+
 module.exports = {
     register,
     login,
     getProfile,
-    logout
+    logout,
+    refreshToken,
+    forgotPassword,
+    resetPassword,
+    changePassword
 };
