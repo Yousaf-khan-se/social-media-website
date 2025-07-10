@@ -44,6 +44,15 @@ const getConflictError = (existingUser, email) => {
         : ERROR_MESSAGES.USERNAME_ALREADY_EXISTS;
 };
 
+// Update user profile
+const updateUserProfile = async (userId, profileData) => {
+    const user = await User.findById(userId);
+    if (!user) throw new Error(ERROR_MESSAGES.USER_NOT_FOUND);
+    Object.assign(user, profileData);
+    await user.save();
+    return user;
+};
+
 module.exports = {
     findExistingUser,
     createUser,
@@ -51,5 +60,6 @@ module.exports = {
     findUserById,
     updateLastLogin,
     getUserProfileData,
-    getConflictError
+    getConflictError,
+    updateUserProfile
 };

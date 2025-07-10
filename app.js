@@ -89,12 +89,12 @@ app.get('/api/health', (req, res) => {
 // Import route modules
 const authRoutes = require('./routes/auth');
 const postRoutes = require('./routes/posts');
-// const userRoutes = require('./routes/users');
+const userRoutes = require('./routes/users');
 
 // Use routes
 app.use('/api/auth', authRoutes);
 app.use('/api/posts', postRoutes);
-// app.use('/api/users', userRoutes);
+app.use('/api/users', userRoutes);
 
 // Global error handler
 app.use((error, req, res, next) => {
