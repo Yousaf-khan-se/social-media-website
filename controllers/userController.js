@@ -1,13 +1,19 @@
 const ResponseHandler = require('../utils/responseHandler');
-const authService = require('../services/authService');
+const userService = require('../services/userService');
+const { ERROR_MESSAGES, SUCCESS_MESSAGES } = require('../constants/messages');
+
 
 // Update user profile
-const updateProfile = async (req, res) => {
+const updateAuthenticatedUserProfile = async (req, res) => {
     try {
         const userId = req.user.userId;
         const profileData = req.body;
-        const result = await authService.updateUserProfile(userId, profileData);
-        return ResponseHandler.success(res, result);
+        const user = await userService.updateUserProfile(userId, profileData);
+        return ResponseHandler.success(res, {
+            message: SUCCESS_MESSAGES.PROFILE_UPDATED,
+            user
+        });
+
     } catch (error) {
         console.error('Profile update error:', error);
         return ResponseHandler.internalError(res, 'Failed to update profile');
@@ -15,5 +21,5 @@ const updateProfile = async (req, res) => {
 };
 
 module.exports = {
-    updateProfile
+    updateAuthenticatedUserProfile
 };

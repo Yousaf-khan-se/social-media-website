@@ -22,7 +22,8 @@ const SUCCESS_MESSAGES = {
     POST_LIKED: 'Post liked successfully',
     POST_UNLIKED: 'Post unliked successfully',
     COMMENT_ADDED: 'Comment added successfully',
-    COMMENT_DELETED: 'Comment deleted successfully'
+    COMMENT_DELETED: 'Comment deleted successfully',
+    PROFILE_UPDATED: 'Profile updated successfully',
 };
 
 // Error Messages

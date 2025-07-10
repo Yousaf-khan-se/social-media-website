@@ -46,11 +46,11 @@ const getConflictError = (existingUser, email) => {
 
 // Update user profile
 const updateUserProfile = async (userId, profileData) => {
-    const user = await User.findById(userId);
-    if (!user) throw new Error(ERROR_MESSAGES.USER_NOT_FOUND);
-    Object.assign(user, profileData);
-    await user.save();
-    return user;
+    return await User.findByIdAndUpdate(
+        userId,
+        profileData,
+        { new: true, runValidators: true }
+    );
 };
 
 module.exports = {
