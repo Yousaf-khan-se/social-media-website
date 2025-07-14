@@ -1,4 +1,39 @@
 const postService = require('../services/postService');
+const multer = require('multer');
+const path = require('path');
+const fs = require('fs');
+
+const storage = multer.diskStorage({
+    destination: function (req, file, cb) {
+        const uploadPath = path.join(__dirname, '../uploads');
+        // Ensure upload directory exists
+        if (!fs.existsSync(uploadPath)) {
+            fs.mkdirSync(uploadPath, { recursive: true });
+        }
+        cb(null, uploadPath);
+    },
+    filename: function (req, file, cb) {
+        // Generate unique filename to prevent conflicts
+        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+        cb(null, file.fieldname + '-' + uniqueSuffix + path.extname(file.originalname));
+    }
+});
+
+const upload = multer({
+    storage: storage,
+    limits: {
+        fileSize: 100 * 1024 * 1024, // 100MB max file size
+        files: 10 // max 10 files
+    },
+    fileFilter: (req, file, cb) => {
+        const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/avif', 'video/mp4', 'video/webm', 'video/mov', 'video/avi'];
+        if (allowedTypes.includes(file.mimetype)) {
+            cb(null, true);
+        } else {
+            cb(new Error(`Invalid file type: ${file.mimetype}`), false);
+        }
+    }
+});
 
 const {
     validateCreatePost,
@@ -10,6 +45,7 @@ const {
 
 const ResponseHandler = require('../utils/responseHandler');
 const { ERROR_MESSAGES, SUCCESS_MESSAGES } = require('../constants/messages');
+const { findUserById } = require('../services/userService');
 
 // Create a new post
 const createPost = async (req, res) => {
@@ -38,6 +74,60 @@ const createPost = async (req, res) => {
         return ResponseHandler.internalError(res, ERROR_MESSAGES.POST_CREATION_FAILED);
     }
 };
+
+const addMediaToPost = [
+    upload.array('media', 10), // max 10 files
+    async (req, res) => {
+        try {
+            const { postId } = req.params;
+            const mediaFiles = req.files;
+
+            console.log('Media files received:', mediaFiles?.length || 0);
+
+            if (!mediaFiles || mediaFiles.length === 0) {
+                return ResponseHandler.badRequest(res, 'No media files uploaded');
+            }
+
+            // Validate file types and sizes
+            const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/avif', 'video/mp4', 'video/webm', 'video/mov', 'video/avi'];
+            const maxImageSize = 10 * 1024 * 1024; // 10MB for images
+            const maxVideoSize = 100 * 1024 * 1024; // 100MB for videos
+
+            for (const file of mediaFiles) {
+                if (!validTypes.includes(file.mimetype)) {
+                    return ResponseHandler.badRequest(res, `Invalid file type: ${file.mimetype}`);
+                }
+
+                const isVideo = file.mimetype.startsWith('video/');
+                const maxSize = isVideo ? maxVideoSize : maxImageSize;
+
+                if (file.size > maxSize) {
+                    return ResponseHandler.badRequest(res, `File too large: ${file.originalname}. Max size: ${maxSize / (1024 * 1024)}MB`);
+                }
+            }
+
+            const post = await postService.uploadMedia(postId, mediaFiles);
+
+            return ResponseHandler.success(res, {
+                post,
+                message: `Successfully uploaded ${mediaFiles.length} media file(s)`,
+                optimization_applied: true
+            });
+
+        } catch (error) {
+            console.error('Add media to post error:', error);
+
+            // Clean up any uploaded files on error
+            if (req.files) {
+                req.files.forEach(file => {
+                    fs.unlink(file.path, () => { });
+                });
+            }
+
+            return ResponseHandler.internalError(res, error.message || 'Failed to add media to post');
+        }
+    }
+];
 
 // Get post by ID
 const getPost = async (req, res) => {
@@ -253,6 +343,60 @@ const deletePost = async (req, res) => {
             return ResponseHandler.error(res, ERROR_MESSAGES.NOT_AUTHORIZED, 403);
         }
 
+        // Get post to access media
+        const post = await postService.getPostById(postId);
+        if (!post) {
+            return ResponseHandler.notFound(res, ERROR_MESSAGES.POST_NOT_FOUND);
+        }
+
+        // Delete media from Cloudinary
+        if (Array.isArray(post.media) && post.media.length > 0) {
+            console.log('Deleting media files from Cloudinary...');
+
+            const deletePromises = post.media.map(async (mediaItem) => {
+                try {
+                    // Handle both old format (string URLs) and new format (objects)
+                    if (typeof mediaItem === 'string') {
+                        // Old format: direct URL string
+                        return await postService.deleteMediaFromCloudinaryByUrl(mediaItem);
+                    } else if (typeof mediaItem === 'object' && mediaItem.public_id) {
+                        // New format: object with public_id and resource_type
+                        return await postService.deleteMediaFromCloudinary(
+                            mediaItem.public_id,
+                            mediaItem.resource_type || 'image'
+                        );
+                    } else if (typeof mediaItem === 'object' && mediaItem.secure_url) {
+                        // New format: object with secure_url
+                        return await postService.deleteMediaFromCloudinaryByUrl(
+                            mediaItem.secure_url,
+                            mediaItem.resource_type || 'image'
+                        );
+                    }
+                } catch (err) {
+                    console.error('Error deleting individual media:', err);
+                    // Continue with other deletions even if one fails
+                    return null;
+                }
+            });
+
+            // Wait for all deletions to complete
+            const results = await Promise.allSettled(deletePromises);
+
+            // Log results for debugging
+            const successCount = results.filter(r => r.status === 'fulfilled' && r.value).length;
+            const failCount = results.filter(r => r.status === 'rejected').length;
+
+            console.log(`Media deletion results: ${successCount} successful, ${failCount} failed`);
+
+            // Log failed deletions for debugging
+            results.forEach((result, index) => {
+                if (result.status === 'rejected') {
+                    console.error(`Failed to delete media ${index}:`, result.reason);
+                }
+            });
+        }
+
+        // Delete the post from database
         await postService.deletePost(postId);
 
         return ResponseHandler.success(res, {
@@ -320,7 +464,7 @@ const addComment = async (req, res) => {
 
         const commentData = {
             ...req.body,
-            user: req.user.userId
+            user: await findUserById(req.user.userId)
         };
 
         const post = await postService.addComment(postId, commentData);
@@ -422,5 +566,6 @@ module.exports = {
     toggleLike,
     addComment,
     deleteComment,
-    searchPosts
+    searchPosts,
+    addMediaToPost
 };

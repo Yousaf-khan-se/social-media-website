@@ -12,15 +12,28 @@ const postSchema = new mongoose.Schema({
         ref: 'User',
         required: [true, 'Post author is required']
     },
-    images: [{
-        type: String, // URLs or file paths to images
-        validate: {
-            validator: function (v) {
-                return v.length <= 10; // Maximum 10 images per post
-            },
-            message: 'Cannot upload more than 10 images per post'
+    media: {
+        type: [
+        {
+            secure_url: { type: String, required: true },
+            public_id: { type: String, required: true },
+            resource_type: { type: String },
+            format: { type: String },
+            width: { type: Number },
+            height: { type: Number },
+            bytes: { type: Number },
+            eager: { type: Array },
+            responsive_urls: { type: Object },
+            uploaded_at: { type: Date }
         }
-    }],
+    ],
+        validate: {
+        validator: function (arr) {
+            return arr.length <= 10; // Maximum 10 media files per post
+        },
+        message: 'Cannot upload more than 10 media files per post'
+        }
+    },
     likes: [{
         user: {
             type: mongoose.Schema.Types.ObjectId,

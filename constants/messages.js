@@ -44,7 +44,10 @@ const ERROR_MESSAGES = {
     POST_DELETE_FAILED: 'Failed to delete post',
     NOT_AUTHORIZED: 'Not authorized to perform this action',
     COMMENT_NOT_FOUND: 'Comment not found',
-    INVALID_POST_DATA: 'Invalid post data provided'
+    INVALID_POST_DATA: 'Invalid post data provided',
+    IMAGE_UPLOAD_FAILED: 'Failed to upload image',
+    INVALID_IMAGE_FORMAT: 'Invalid image format',
+    COMMENT_CREATION_FAILED: 'Failed to create comment',
 };
 
 // Validation Messages
