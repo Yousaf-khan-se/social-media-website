@@ -63,6 +63,24 @@ const countDocuments = async (filter) => {
     return await User.countDocuments(filter);
 };
 
+const addFollower = async (userId, followId) => {
+    // Add followId to user's following array
+    await User.findByIdAndUpdate(
+        userId,
+        { $addToSet: { following: followId } },
+        { new: true }
+    );
+
+    // Add userId to followId's followers array
+    const updatedFollowedUser = await User.findByIdAndUpdate(
+        followId,
+        { $addToSet: { followers: userId } },
+        { new: true }
+    ).select('-password');
+
+    return updatedFollowedUser;
+};
+
 module.exports = {
     findExistingUser,
     createUser,
@@ -73,5 +91,6 @@ module.exports = {
     getConflictError,
     updateUserProfile,
     findUser,
-    countDocuments
+    countDocuments,
+    addFollower
 };

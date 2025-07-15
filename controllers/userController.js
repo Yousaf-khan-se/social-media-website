@@ -21,6 +21,25 @@ const updateAuthenticatedUserProfile = async (req, res) => {
     }
 };
 
+const updateAuthenticatedUserFollowers = async (req, res) => {
+    try {
+        const userId = req.user.userId;      // The user who is performing the follow
+        const followId = req.params.followId; // The user to be followed
+
+        // Add followId to user's following, and userId to followId's followers
+        const updatedUser = await userService.addFollower(userId, followId);
+
+        return ResponseHandler.success(res, {
+            message: SUCCESS_MESSAGES.FOLLOW_STATUS_UPDATED,
+            user: updatedUser
+        });
+
+    } catch (error) {
+        console.error('Follow update error:', error);
+        return ResponseHandler.internalError(res, 'Failed to update follow status');
+    }
+};
+
 // Search users
 const searchUsers = async (req, res) => {
     try {
@@ -78,6 +97,7 @@ const searchUsers = async (req, res) => {
 
 
 module.exports = {
+    updateAuthenticatedUserFollowers,
     updateAuthenticatedUserProfile,
     searchUsers
 };

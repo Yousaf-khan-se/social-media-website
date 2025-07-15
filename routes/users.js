@@ -7,6 +7,6 @@ const { authenticateToken } = require('../middleware/auth');
 router.put('/profile', authenticateToken, userController.updateAuthenticatedUserProfile);
 // router.put('/peoplerecommendations', authenticateToken, userController.updatePeopleRecommendations);
 router.get('/search', authenticateToken, userController.searchUsers);
-
+router.post('/:followId/follow', authenticateToken, userController.updateAuthenticatedUserFollowers);
 
 module.exports = router;

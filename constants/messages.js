@@ -24,6 +24,7 @@ const SUCCESS_MESSAGES = {
     COMMENT_ADDED: 'Comment added successfully',
     COMMENT_DELETED: 'Comment deleted successfully',
     PROFILE_UPDATED: 'Profile updated successfully',
+    FOLLOW_STATUS_UPDATED: 'Follow status updated successfully',
 };
 
 // Error Messages
