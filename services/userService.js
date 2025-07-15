@@ -12,17 +12,30 @@ const findExistingUser = async (email, username) => {
 const createUser = async (userData) => {
     const user = new User(userData);
     await user.save();
-    return user;
+    return await user.populate([
+        { path: 'followers', select: 'username firstName lastName profilePicture isVerified' },
+        { path: 'following', select: 'username firstName lastName profilePicture isVerified' }
+    ]);
 };
 
 // Find user by email with password
 const findUserByEmailWithPassword = async (email) => {
-    return await User.findOne({ email }).select('+password');
+    const user = await User.findOne({ email }).select('+password');
+    if (!user) return null;
+    return await user.populate([
+        { path: 'followers', select: 'username firstName lastName profilePicture isVerified' },
+        { path: 'following', select: 'username firstName lastName profilePicture isVerified' }
+    ]);
 };
 
 // Find user by ID
 const findUserById = async (userId) => {
-    return await User.findById(userId);
+    const user = await User.findById(userId);
+    if (!user) return null;
+    return await user.populate([
+        { path: 'followers', select: 'username firstName lastName profilePicture isVerified' },
+        { path: 'following', select: 'username firstName lastName profilePicture isVerified' }
+    ]);
 };
 
 // Update user's last login
@@ -46,11 +59,16 @@ const getConflictError = (existingUser, email) => {
 
 // Update user profile
 const updateUserProfile = async (userId, profileData) => {
-    return await User.findByIdAndUpdate(
+    const user = await User.findByIdAndUpdate(
         userId,
         profileData,
         { new: true, runValidators: true }
     );
+    if (!user) return null;
+    return await user.populate([
+        { path: 'followers', select: 'username firstName lastName profilePicture isVerified' },
+        { path: 'following', select: 'username firstName lastName profilePicture isVerified' }
+    ]);
 };
 
 // Find users by filter (for search)
@@ -65,21 +83,54 @@ const countDocuments = async (filter) => {
 
 const addFollower = async (userId, followId) => {
     // Add followId to user's following array
-    await User.findByIdAndUpdate(
+    let user = await User.findByIdAndUpdate(
         userId,
         { $addToSet: { following: followId } },
         { new: true }
     );
 
     // Add userId to followId's followers array
-    const updatedFollowedUser = await User.findByIdAndUpdate(
+    let updatedFollowedUser = await User.findByIdAndUpdate(
         followId,
         { $addToSet: { followers: userId } },
         { new: true }
     ).select('-password');
 
-    return updatedFollowedUser;
+    if (!updatedFollowedUser) return null;
+
+    user = await user.populate([
+        { path: 'followers', select: 'username firstName lastName profilePicture isVerified' },
+        { path: 'following', select: 'username firstName lastName profilePicture isVerified' }
+    ]);
+
+    return user;
 };
+
+const removeFollower = async (userId, followId) => {
+    // Remove followId from user's following array
+    let user = await User.findByIdAndUpdate(
+        userId,
+        { $pull: { following: followId } },
+        { new: true }
+    );
+
+    // Remove userId from followId's followers array
+    let updatedFollowedUser = await User.findByIdAndUpdate(
+        followId,
+        { $pull: { followers: userId } },
+        { new: true }
+    ).select('-password');
+
+    if (!updatedFollowedUser) return null;
+
+    user = await user.populate([
+        { path: 'followers', select: 'username firstName lastName profilePicture isVerified' },
+        { path: 'following', select: 'username firstName lastName profilePicture isVerified' }
+    ]);
+
+    return user;
+};
+
 
 module.exports = {
     findExistingUser,
@@ -92,5 +143,6 @@ module.exports = {
     updateUserProfile,
     findUser,
     countDocuments,
-    addFollower
+    addFollower,
+    removeFollower
 };

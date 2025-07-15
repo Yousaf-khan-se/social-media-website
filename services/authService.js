@@ -3,7 +3,7 @@ const { sendEmail, emailTemplates } = require('../utils/email');
 const { addToBlacklist } = require('../utils/tokenBlacklist');
 const userService = require('./userService');
 const { ERROR_MESSAGES, SUCCESS_MESSAGES } = require('../constants/messages');
-const { configDotenv } = require('dotenv');
+require('dotenv').config();
 
 // Send welcome email (non-blocking)
 const sendWelcomeEmail = async (email, firstName) => {
@@ -30,18 +30,24 @@ const registerUser = async (userData) => {
     }
 
     // Create new user
-    const user = await userService.createUser({
+    let user = await userService.createUser({
         username,
         email,
         password,
         firstName,
         lastName
     });
+    // Fully populate followers and following
+    user = await user.populate([
+        { path: 'followers', select: 'username firstName lastName profilePicture isVerified' },
+        { path: 'following', select: 'username firstName lastName profilePicture isVerified' }
+    ]);
     // Send welcome email (non-blocking)
     sendWelcomeEmail(user.email, user.firstName);
 
     return {
         message: SUCCESS_MESSAGES.USER_REGISTERED,
+        user: userService.getUserProfileData(user)
     };
 };
 
@@ -52,7 +58,7 @@ const loginUser = async (res, credentials) => {
     const { email, password } = credentials;
 
     // Find user by email
-    const user = await userService.findUserByEmailWithPassword(email);
+    let user = await userService.findUserByEmailWithPassword(email);
     if (!user) {
         throw new Error(ERROR_MESSAGES.INVALID_CREDENTIALS);
     }
@@ -65,6 +71,12 @@ const loginUser = async (res, credentials) => {
 
     // Update last login
     await userService.updateLastLogin(user);
+
+    // Fully populate followers and following
+    user = await user.populate([
+        { path: 'followers', select: 'username firstName lastName profilePicture isVerified' },
+        { path: 'following', select: 'username firstName lastName profilePicture isVerified' }
+    ]);
 
     // Generate token
     const token = generateToken({ userId: user._id });
@@ -84,10 +96,16 @@ const loginUser = async (res, credentials) => {
 
 // Get user profile
 const getUserProfile = async (userId) => {
-    const user = await userService.findUserById(userId);
+    let user = await userService.findUserById(userId);
     if (!user) {
         throw new Error(ERROR_MESSAGES.USER_NOT_FOUND);
     }
+
+    // Fully populate followers and following
+    user = await user.populate([
+        { path: 'followers', select: 'username firstName lastName profilePicture isVerified' },
+        { path: 'following', select: 'username firstName lastName profilePicture isVerified' }
+    ]);
 
     return {
         user: userService.getUserProfileData(user)
