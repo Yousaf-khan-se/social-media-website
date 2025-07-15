@@ -129,13 +129,11 @@ const addComment = async (postId, commentData) => {
     post.comments.push(commentData);
     await post.save();
 
-    // Fully populate all user references
-    await post
+    return await Post.findById(post._id)
         .populate('author', 'username firstName lastName profilePicture')
         .populate('comments.user', 'username firstName lastName profilePicture')
         .populate('likes.user', 'username firstName lastName profilePicture')
         .populate('shares.user', 'username firstName lastName profilePicture');
-    return post;
 };
 
 // Delete comment from post
@@ -157,25 +155,22 @@ const deleteComment = async (postId, commentId, userId) => {
 
     post.comments.pull(commentId);
     await post.save();
-
-    // Fully populate all user references
-    await post
+    return await Post.findById(post._id)
         .populate('author', 'username firstName lastName profilePicture')
         .populate('comments.user', 'username firstName lastName profilePicture')
         .populate('likes.user', 'username firstName lastName profilePicture')
         .populate('shares.user', 'username firstName lastName profilePicture');
-    return post;
 };
 
 // Search posts by content or tags
 const searchPosts = async (query, page = 1, limit = 10) => {
     const skip = (page - 1) * limit;
-
+    const words = query.trim().split(/\s+/);
     return await Post.find({
         isPublic: true,
         $or: [
-            { content: { $regex: query, $options: 'i' } },
-            { tags: { $in: [new RegExp(query, 'i')] } }
+            ...words.map(word => ({ content: { $regex: word, $options: 'i' } })),
+            ...words.map(word => ({ tags: { $in: [new RegExp(word, 'i')] } }))
         ]
     })
         .populate('author', 'username firstName lastName profilePicture')
@@ -331,13 +326,11 @@ const uploadMedia = async (postId, mediaFiles) => {
     }
 
     await post.save();
-    // Fully populate all user references
-    await post
+    return await Post.findById(post._id)
         .populate('author', 'username firstName lastName profilePicture')
         .populate('comments.user', 'username firstName lastName profilePicture')
         .populate('likes.user', 'username firstName lastName profilePicture')
         .populate('shares.user', 'username firstName lastName profilePicture');
-    return post;
 };
 
 

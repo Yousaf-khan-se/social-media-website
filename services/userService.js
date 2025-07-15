@@ -53,6 +53,16 @@ const updateUserProfile = async (userId, profileData) => {
     );
 };
 
+// Find users by filter (for search)
+const findUser = (filter) => {
+    return User.find(filter);
+};
+
+// Count users by filter (for search pagination)
+const countDocuments = async (filter) => {
+    return await User.countDocuments(filter);
+};
+
 module.exports = {
     findExistingUser,
     createUser,
@@ -61,5 +71,7 @@ module.exports = {
     updateLastLogin,
     getUserProfileData,
     getConflictError,
-    updateUserProfile
+    updateUserProfile,
+    findUser,
+    countDocuments
 };

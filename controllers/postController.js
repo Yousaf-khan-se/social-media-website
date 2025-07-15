@@ -520,7 +520,7 @@ const deleteComment = async (req, res) => {
 // Search posts
 const searchPosts = async (req, res) => {
     try {
-        const { q: query, page, limit } = req.query;
+        const { query, page, limit } = req.query;
 
         if (!query || query.trim().length === 0) {
             return ResponseHandler.badRequest(res, 'Search query is required');
