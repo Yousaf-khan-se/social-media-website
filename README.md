@@ -1,5 +1,5 @@
 this project contains backend rest apis' hosted on :
-https://social-media-website-lovat-gamma.vercel.app/
+https://social-media-website-backend-dsj2.onrender.com/api
 
 ## 🚀 API Routes
 
