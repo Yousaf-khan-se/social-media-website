@@ -3,6 +3,10 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 
+const ResponseHandler = require('../utils/responseHandler');
+const { ERROR_MESSAGES, SUCCESS_MESSAGES } = require('../constants/messages');
+const { findUserById } = require('../services/userService');
+
 const storage = multer.diskStorage({
     destination: function (req, file, cb) {
         const uploadPath = path.join(__dirname, '../uploads');
@@ -42,10 +46,6 @@ const {
     validatePostId,
     validatePagination
 } = require('../validators/postValidator');
-
-const ResponseHandler = require('../utils/responseHandler');
-const { ERROR_MESSAGES, SUCCESS_MESSAGES } = require('../constants/messages');
-const { findUserById } = require('../services/userService');
 
 // Create a new post
 const createPost = async (req, res) => {

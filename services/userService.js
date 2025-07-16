@@ -106,6 +106,26 @@ const addFollower = async (userId, followId) => {
     return user;
 };
 
+const getUserFollowerIds = async (userId) => {
+    try {
+        const user = await User.findById(userId).select('followers').lean();
+        return user ? user.followers : [];
+    } catch (error) {
+        console.error('Error fetching user followers:', error);
+        throw new Error('Failed to fetch user followers');
+    }
+};
+
+const getUserFollowingIds = async (userId) => {
+    try {
+        const user = await User.findById(userId).select('following').lean();
+        return user ? user.following : [];
+    } catch (error) {
+        console.error('Error fetching user followings:', error);
+        throw new Error('Failed to fetch user followings');
+    }
+};
+
 const removeFollower = async (userId, followId) => {
     // Remove followId from user's following array
     let user = await User.findByIdAndUpdate(
@@ -144,5 +164,7 @@ module.exports = {
     findUser,
     countDocuments,
     addFollower,
-    removeFollower
+    removeFollower,
+    getUserFollowerIds,
+    getUserFollowingIds
 };

@@ -33,15 +33,35 @@ https://social-media-website-lovat-gamma.vercel.app/
 | `GET` | `/api/posts/:postId` | Get a specific post by ID |
 | `PUT` | `/api/posts/:postId` | Update a post |
 | `DELETE` | `/api/posts/:postId` | Delete a post |
-| `POST` | `/api/posts/:postId/like` | Like/unlike a post |
-| `POST` | `/api/posts/:postId/comments` | Add comment to post |
-| `DELETE` | `/api/posts/:postId/comments/:commentId` | Delete a comment |
+| `PUT` | `/api/posts/media/:postId` | Upload images to a post |
+
+### **User Routes** (`/api/users`)
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `PUT` | `/api/users/profile` | Update authenticated user's profile |
+| `GET` | `/api/users/search` | Search users |
+| `GET` | `/api/users/followers` | Get followers of the authenticated user |
+| `GET` | `/api/users/following` | Get followings of the authenticated user |
+| `POST` | `/api/users/:followId/follow` | Follow a user |
+| `DELETE` | `/api/users/:followId/follow` | Unfollow a user |
+
+### **Chat Routes** (`/api/chats`)
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `POST` | `/api/chats/create` | Create a new chat room |
+| `GET` | `/api/chats` | Get all chat rooms for the authenticated user |
+| `DELETE` | `/api/chats/:roomId` | Delete a chat room |
+| `GET` | `/api/chats/:roomId/messages` | Get messages from a chat room |
+| `DELETE` | `/api/chats/message/:messageId` | Delete a specific message |
+| `PUT` | `/api/chats/media/:roomId` | Upload media to a chat room |
 
 ## 📋 Route Summary
 - **Total Base Routes**: 2
 - **Authentication Routes**: 8
 - **Posts Routes**: 10
-- **Total Active Routes**: 20
+- **User Routes**: 6
+- **Chat Routes**: 6
+- **Total Active Routes**: 32
 
 ## 🔒 Authentication Required
-All routes under `/api/posts` and protected auth routes (`/api/auth/me`, `/api/auth/logout`, `/api/auth/change-password`) require JWT authentication via:
+All routes under `/api/posts`, `/api/users`, and `/api/chats` require JWT authentication via the `Authorization` header or cookies.
