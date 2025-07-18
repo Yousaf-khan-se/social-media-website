@@ -1,10 +1,32 @@
 const Message = require('../models/Message');
 const ChatRoom = require('../models/ChatRoom');
 
+const onlineUsers = new Map(); // Track online users and their rooms
+
 // Chat socket handler
 module.exports = function registerChatSocket(io) {
-    io.on('connection', (socket) => {
+    io.on('connection', async (socket) => {
         console.log(`🟢 Socket connected: ${socket.id} - User: ${socket.user.userId}`);
+
+        // Fetch all rooms the user belongs to
+        const userRooms = await ChatRoom.find({ participants: socket.user.userId }).select('_id').lean();
+        const roomIds = userRooms.map(room => room._id.toString());
+
+        // Store user's rooms in memory
+        onlineUsers.set(socket.user.userId, roomIds);
+
+        // Broadcast online status to all rooms
+        roomIds.forEach(roomId => {
+            socket.to(roomId).emit('userOnline', {
+                user: {
+                    id: socket.user.userId,
+                    username: socket.user.username,
+                    firstName: socket.user.firstName,
+                    lastName: socket.user.lastName,
+                    profilePicture: socket.user.profilePicture
+                }
+            });
+        });
 
         // Join user to their personal room (for notifications)
         socket.join(`user_${socket.user.userId}`);
@@ -175,6 +197,25 @@ module.exports = function registerChatSocket(io) {
         // Handle disconnection
         socket.on('disconnect', () => {
             console.log(`🔴 Socket disconnected: ${socket.id} - User: ${socket.user.username || socket.user.userId}`);
+
+            // Get user's rooms from memory
+            const userRooms = onlineUsers.get(socket.user.userId) || [];
+
+            // Broadcast offline status to all rooms
+            userRooms.forEach(roomId => {
+                socket.to(roomId).emit('userOffline', {
+                    user: {
+                        id: socket.user.userId,
+                        username: socket.user.username,
+                        firstName: socket.user.firstName,
+                        lastName: socket.user.lastName,
+                        profilePicture: socket.user.profilePicture
+                    }
+                });
+            });
+
+            // Remove user from memory
+            onlineUsers.delete(socket.user.userId);
         });
     });
 };
