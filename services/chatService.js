@@ -34,9 +34,16 @@ const createChatRoom = async (participants, isGroup = false, name = '') => {
         });
 
         await chatRoom.save();
-        return await ChatRoom.findById(chatRoom._id)
+        const newChatRoom = await ChatRoom.findById(chatRoom._id)
             .populate('participants', 'username firstName lastName profilePicture')
             .populate('lastMessage');
+
+        // Send notifications for chat creation
+        const notificationService = require('./notificationService');
+        notificationService.sendChatCreatedNotification(chatRoom._id, participants[0])
+            .catch(err => console.error('Chat creation notification error:', err));
+
+        return newChatRoom;
     } catch (error) {
         console.error('Error creating chat room:', error);
         throw error;

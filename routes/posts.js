@@ -20,6 +20,7 @@ router.put('/media/:postId', postController.addMediaToPost);   // Upload images
 
 // Post interactions
 router.post('/:postId/like', postController.toggleLike);      // Like/Unlike post
+router.post('/:postId/share', postController.toggleShare);    // Share/Unshare post
 router.post('/:postId/comments', postController.addComment);  // Add comment
 router.delete('/:postId/comments/:commentId', postController.deleteComment); // Delete comment
 

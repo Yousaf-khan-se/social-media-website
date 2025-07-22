@@ -15,20 +15,23 @@ cloudinary.config({
 const createPost = async (postData) => {
     const post = new Post(postData);
     await post.save();
-    return await post
-        .populate('author', 'username firstName lastName profilePicture')
-        .populate('comments.user', 'username firstName lastName profilePicture')
-        .populate('likes.user', 'username firstName lastName profilePicture')
-        .populate('shares.user', 'username firstName lastName profilePicture');
+    return await post.populate([
+        { path: 'author', select: 'username firstName lastName profilePicture' },
+        { path: 'comments.user', select: 'username firstName lastName profilePicture' },
+        { path: 'likes.user', select: 'username firstName lastName profilePicture' },
+        { path: 'shares.user', select: 'username firstName lastName profilePicture' }
+    ]);
 };
 
 // Get post by ID
 const getPostById = async (postId) => {
     return await Post.findById(postId)
-        .populate('author', 'username firstName lastName profilePicture')
-        .populate('comments.user', 'username firstName lastName profilePicture')
-        .populate('likes.user', 'username firstName lastName profilePicture')
-        .populate('shares.user', 'username firstName lastName profilePicture');
+        .populate([
+            { path: 'author', select: 'username firstName lastName profilePicture' },
+            { path: 'comments.user', select: 'username firstName lastName profilePicture' },
+            { path: 'likes.user', select: 'username firstName lastName profilePicture' },
+            { path: 'shares.user', select: 'username firstName lastName profilePicture' }
+        ]);
 };
 
 // Get posts by user ID
@@ -36,10 +39,12 @@ const getPostsByUserId = async (userId, page = 1, limit = 10) => {
     const skip = (page - 1) * limit;
 
     return await Post.find({ author: userId, isPublic: true })
-        .populate('author', 'username firstName lastName profilePicture')
-        .populate('comments.user', 'username firstName lastName profilePicture')
-        .populate('likes.user', 'username firstName lastName profilePicture')
-        .populate('shares.user', 'username firstName lastName profilePicture')
+        .populate([
+            { path: 'author', select: 'username firstName lastName profilePicture' },
+            { path: 'comments.user', select: 'username firstName lastName profilePicture' },
+            { path: 'likes.user', select: 'username firstName lastName profilePicture' },
+            { path: 'shares.user', select: 'username firstName lastName profilePicture' }
+        ])
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limit);
@@ -53,10 +58,12 @@ const getFeedPosts = async (followingIds, page = 1, limit = 10) => {
         author: { $in: followingIds },
         isPublic: true
     })
-        .populate('author', 'username firstName lastName profilePicture')
-        .populate('comments.user', 'username firstName lastName profilePicture')
-        .populate('likes.user', 'username firstName lastName profilePicture')
-        .populate('shares.user', 'username firstName lastName profilePicture')
+        .populate([
+            { path: 'author', select: 'username firstName lastName profilePicture' },
+            { path: 'comments.user', select: 'username firstName lastName profilePicture' },
+            { path: 'likes.user', select: 'username firstName lastName profilePicture' },
+            { path: 'shares.user', select: 'username firstName lastName profilePicture' }
+        ])
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limit);
@@ -67,10 +74,12 @@ const getPublicPosts = async (page = 1, limit = 10) => {
     const skip = (page - 1) * limit;
 
     return await Post.find({ isPublic: true })
-        .populate('author', 'username firstName lastName profilePicture')
-        .populate('comments.user', 'username firstName lastName profilePicture')
-        .populate('likes.user', 'username firstName lastName profilePicture')
-        .populate('shares.user', 'username firstName lastName profilePicture')
+        .populate([
+            { path: 'author', select: 'username firstName lastName profilePicture' },
+            { path: 'comments.user', select: 'username firstName lastName profilePicture' },
+            { path: 'likes.user', select: 'username firstName lastName profilePicture' },
+            { path: 'shares.user', select: 'username firstName lastName profilePicture' }
+        ])
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limit);
@@ -83,10 +92,12 @@ const updatePost = async (postId, updateData) => {
         updateData,
         { new: true, runValidators: true }
     )
-        .populate('author', 'username firstName lastName profilePicture')
-        .populate('comments.user', 'username firstName lastName profilePicture')
-        .populate('likes.user', 'username firstName lastName profilePicture')
-        .populate('shares.user', 'username firstName lastName profilePicture');
+        .populate([
+            { path: 'author', select: 'username firstName lastName profilePicture' },
+            { path: 'comments.user', select: 'username firstName lastName profilePicture' },
+            { path: 'likes.user', select: 'username firstName lastName profilePicture' },
+            { path: 'shares.user', select: 'username firstName lastName profilePicture' }
+        ])
 };
 
 // Delete post
@@ -102,21 +113,40 @@ const toggleLike = async (postId, userId) => {
     }
 
     const likeIndex = post.likes.findIndex(like => like.user.toString() === userId.toString());
+    let isLiked = false;
 
     if (likeIndex > -1) {
         // Unlike the post
         post.likes.splice(likeIndex, 1);
+        isLiked = false;
     } else {
         // Like the post
         post.likes.push({ user: userId });
+        isLiked = true;
+
+        // Send notification for new like (only if not liking own post)
+        if (post.author.toString() !== userId.toString()) {
+            const notificationService = require('./notificationService');
+            // Non-blocking notification
+            notificationService.sendPostNotification(
+                postId,
+                userId,
+                post.author.toString(),
+                'like'
+            ).catch(err => console.error('Like notification error:', err));
+        }
     }
 
     await post.save();
-    return await Post.findById(post._id)
-        .populate('author', 'username firstName lastName profilePicture')
-        .populate('comments.user', 'username firstName lastName profilePicture')
-        .populate('likes.user', 'username firstName lastName profilePicture')
-        .populate('shares.user', 'username firstName lastName profilePicture');
+    const updatedPost = await Post.findById(post._id)
+        .populate([
+            { path: 'author', select: 'username firstName lastName profilePicture' },
+            { path: 'comments.user', select: 'username firstName lastName profilePicture' },
+            { path: 'likes.user', select: 'username firstName lastName profilePicture' },
+            { path: 'shares.user', select: 'username firstName lastName profilePicture' }
+        ])
+
+    return { post: updatedPost, isLiked };
 };
 
 // Add comment to post
@@ -129,11 +159,26 @@ const addComment = async (postId, commentData) => {
     post.comments.push(commentData);
     await post.save();
 
+    // Send notification for new comment (only if not commenting on own post)
+    if (post.author.toString() !== commentData.user.toString()) {
+        const notificationService = require('./notificationService');
+        // Non-blocking notification
+        notificationService.sendPostNotification(
+            postId,
+            commentData.user,
+            post.author.toString(),
+            'comment',
+            { commentContent: commentData.content }
+        ).catch(err => console.error('Comment notification error:', err));
+    }
+
     return await Post.findById(post._id)
-        .populate('author', 'username firstName lastName profilePicture')
-        .populate('comments.user', 'username firstName lastName profilePicture')
-        .populate('likes.user', 'username firstName lastName profilePicture')
-        .populate('shares.user', 'username firstName lastName profilePicture');
+        .populate([
+            { path: 'author', select: 'username firstName lastName profilePicture' },
+            { path: 'comments.user', select: 'username firstName lastName profilePicture' },
+            { path: 'likes.user', select: 'username firstName lastName profilePicture' },
+            { path: 'shares.user', select: 'username firstName lastName profilePicture' }
+        ])
 };
 
 // Delete comment from post
@@ -156,10 +201,56 @@ const deleteComment = async (postId, commentId, userId) => {
     post.comments.pull(commentId);
     await post.save();
     return await Post.findById(post._id)
-        .populate('author', 'username firstName lastName profilePicture')
-        .populate('comments.user', 'username firstName lastName profilePicture')
-        .populate('likes.user', 'username firstName lastName profilePicture')
-        .populate('shares.user', 'username firstName lastName profilePicture');
+        .populate([
+            { path: 'author', select: 'username firstName lastName profilePicture' },
+            { path: 'comments.user', select: 'username firstName lastName profilePicture' },
+            { path: 'likes.user', select: 'username firstName lastName profilePicture' },
+            { path: 'shares.user', select: 'username firstName lastName profilePicture' }
+        ])
+};
+
+// Share/Unshare post
+const toggleShare = async (postId, userId) => {
+    const post = await Post.findById(postId);
+    if (!post) {
+        throw new Error(ERROR_MESSAGES.POST_NOT_FOUND || 'Post not found');
+    }
+
+    const shareIndex = post.shares.findIndex(share => share.user.toString() === userId.toString());
+    let isShared = false;
+
+    if (shareIndex > -1) {
+        // Unshare the post
+        post.shares.splice(shareIndex, 1);
+        isShared = false;
+    } else {
+        // Share the post
+        post.shares.push({ user: userId });
+        isShared = true;
+
+        // Send notification for new share (only if not sharing own post)
+        if (post.author.toString() !== userId.toString()) {
+            const notificationService = require('./notificationService');
+            // Non-blocking notification
+            notificationService.sendPostNotification(
+                postId,
+                userId,
+                post.author.toString(),
+                'share'
+            ).catch(err => console.error('Share notification error:', err));
+        }
+    }
+
+    await post.save();
+    const updatedPost = await Post.findById(post._id)
+        .populate([
+            { path: 'author', select: 'username firstName lastName profilePicture' },
+            { path: 'comments.user', select: 'username firstName lastName profilePicture' },
+            { path: 'likes.user', select: 'username firstName lastName profilePicture' },
+            { path: 'shares.user', select: 'username firstName lastName profilePicture' }
+        ])
+
+    return { post: updatedPost, isShared };
 };
 
 // Search posts by content or tags
@@ -173,10 +264,12 @@ const searchPosts = async (query, page = 1, limit = 10) => {
             ...words.map(word => ({ tags: { $in: [new RegExp(word, 'i')] } }))
         ]
     })
-        .populate('author', 'username firstName lastName profilePicture')
-        .populate('comments.user', 'username firstName lastName profilePicture')
-        .populate('likes.user', 'username firstName lastName profilePicture')
-        .populate('shares.user', 'username firstName lastName profilePicture')
+        .populate([
+            { path: 'author', select: 'username firstName lastName profilePicture' },
+            { path: 'comments.user', select: 'username firstName lastName profilePicture' },
+            { path: 'likes.user', select: 'username firstName lastName profilePicture' },
+            { path: 'shares.user', select: 'username firstName lastName profilePicture' }
+        ])
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limit);
@@ -190,10 +283,12 @@ const getPostsByTag = async (tag, page = 1, limit = 10) => {
         tags: tag,
         isPublic: true
     })
-        .populate('author', 'username firstName lastName profilePicture')
-        .populate('comments.user', 'username firstName lastName profilePicture')
-        .populate('likes.user', 'username firstName lastName profilePicture')
-        .populate('shares.user', 'username firstName lastName profilePicture')
+        .populate([
+            { path: 'author', select: 'username firstName lastName profilePicture' },
+            { path: 'comments.user', select: 'username firstName lastName profilePicture' },
+            { path: 'likes.user', select: 'username firstName lastName profilePicture' },
+            { path: 'shares.user', select: 'username firstName lastName profilePicture' }
+        ])
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limit);
@@ -327,10 +422,12 @@ const uploadMedia = async (postId, mediaFiles) => {
 
     await post.save();
     return await Post.findById(post._id)
-        .populate('author', 'username firstName lastName profilePicture')
-        .populate('comments.user', 'username firstName lastName profilePicture')
-        .populate('likes.user', 'username firstName lastName profilePicture')
-        .populate('shares.user', 'username firstName lastName profilePicture');
+        .populate([
+            { path: 'author', select: 'username firstName lastName profilePicture' },
+            { path: 'comments.user', select: 'username firstName lastName profilePicture' },
+            { path: 'likes.user', select: 'username firstName lastName profilePicture' },
+            { path: 'shares.user', select: 'username firstName lastName profilePicture' }
+        ])
 };
 
 
@@ -431,6 +528,7 @@ module.exports = {
     toggleLike,
     addComment,
     deleteComment,
+    toggleShare,
     searchPosts,
     getPostsByTag,
     checkPostOwnership,

@@ -98,6 +98,11 @@ const addFollower = async (userId, followId) => {
 
     if (!updatedFollowedUser) return null;
 
+    // Send notification for new follower
+    const notificationService = require('./notificationService');
+    notificationService.sendFollowNotification(userId, followId)
+        .catch(err => console.error('Follow notification error:', err));
+
     user = await user.populate([
         { path: 'followers', select: 'username firstName lastName profilePicture isVerified' },
         { path: 'following', select: 'username firstName lastName profilePicture isVerified' }

@@ -425,13 +425,12 @@ const toggleLike = async (req, res) => {
             return ResponseHandler.validationError(res, validation.errors);
         }
 
-        const post = await postService.toggleLike(postId, req.user.userId);
-        const isLiked = post.isLikedBy(req.user.userId);
+        const result = await postService.toggleLike(postId, req.user.userId);
 
         return ResponseHandler.success(res, {
-            message: isLiked ? SUCCESS_MESSAGES.POST_LIKED : SUCCESS_MESSAGES.POST_UNLIKED,
-            post,
-            isLiked
+            message: result.isLiked ? SUCCESS_MESSAGES.POST_LIKED : SUCCESS_MESSAGES.POST_UNLIKED,
+            post: result.post,
+            isLiked: result.isLiked
         });
 
     } catch (error) {
@@ -442,6 +441,36 @@ const toggleLike = async (req, res) => {
         }
 
         return ResponseHandler.internalError(res, 'Failed to toggle like');
+    }
+};
+
+// Share/Unshare post
+const toggleShare = async (req, res) => {
+    try {
+        const { postId } = req.params;
+
+        // Validate post ID
+        const validation = validatePostId(postId);
+        if (!validation.isValid) {
+            return ResponseHandler.validationError(res, validation.errors);
+        }
+
+        const result = await postService.toggleShare(postId, req.user.userId);
+
+        return ResponseHandler.success(res, {
+            message: result.isShared ? SUCCESS_MESSAGES.POST_SHARED : SUCCESS_MESSAGES.POST_UNSHARED,
+            post: result.post,
+            isShared: result.isShared
+        });
+
+    } catch (error) {
+        console.error('Toggle share error:', error);
+
+        if (error.message === ERROR_MESSAGES.POST_NOT_FOUND) {
+            return ResponseHandler.notFound(res, error.message);
+        }
+
+        return ResponseHandler.internalError(res, 'Failed to toggle share');
     }
 };
 
@@ -564,6 +593,7 @@ module.exports = {
     updatePost,
     deletePost,
     toggleLike,
+    toggleShare,
     addComment,
     deleteComment,
     searchPosts,

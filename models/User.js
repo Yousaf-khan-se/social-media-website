@@ -64,6 +64,58 @@ const userSchema = new mongoose.Schema({
     lastLogin: {
         type: Date,
         default: null
+    },
+    // Firebase Cloud Messaging tokens for push notifications
+    fcmTokens: [{
+        token: {
+            type: String,
+            required: true
+        },
+        device: {
+            type: String,
+            enum: ['web', 'android', 'ios'],
+            default: 'web'
+        },
+        addedAt: {
+            type: Date,
+            default: Date.now
+        }
+    }],
+    // Notification preferences
+    notificationSettings: {
+        likes: {
+            type: Boolean,
+            default: true
+        },
+        comments: {
+            type: Boolean,
+            default: true
+        },
+        shares: {
+            type: Boolean,
+            default: true
+        },
+        follows: {
+            type: Boolean,
+            default: true
+        },
+        messages: {
+            type: Boolean,
+            default: true
+        },
+        groupChats: {
+            type: Boolean,
+            default: true
+        }
+    },
+    // Online status for messaging notifications
+    isOnline: {
+        type: Boolean,
+        default: false
+    },
+    lastSeen: {
+        type: Date,
+        default: Date.now
     }
 }, {
     timestamps: true,

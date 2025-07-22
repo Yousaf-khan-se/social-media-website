@@ -1,5 +1,6 @@
 const Message = require('../models/Message');
 const ChatRoom = require('../models/ChatRoom');
+const notificationService = require('../services/notificationService');
 
 const onlineUsers = new Map(); // Track online users and their rooms
 
@@ -7,6 +8,9 @@ const onlineUsers = new Map(); // Track online users and their rooms
 module.exports = function registerChatSocket(io) {
     io.on('connection', async (socket) => {
         console.log(`🟢 Socket connected: ${socket.id} - User: ${socket.user.userId}`);
+
+        // Update user's online status in database
+        await notificationService.updateOnlineStatus(socket.user.userId, true);
 
         // Fetch all rooms the user belongs to
         const userRooms = await ChatRoom.find({ participants: socket.user.userId }).select('_id').lean();
@@ -131,6 +135,14 @@ module.exports = function registerChatSocket(io) {
                     updatedAt: message.updatedAt
                 });
 
+                // Send push notifications to offline users
+                notificationService.sendMessageNotification(
+                    roomId,
+                    socket.user.userId,
+                    content,
+                    messageType
+                ).catch(err => console.error('Message notification error:', err));
+
                 console.log(`Message sent in room ${roomId} by ${socket.user.username || socket.user.userId}`);
 
             } catch (error) {
@@ -195,8 +207,11 @@ module.exports = function registerChatSocket(io) {
         });
 
         // Handle disconnection
-        socket.on('disconnect', () => {
+        socket.on('disconnect', async () => {
             console.log(`🔴 Socket disconnected: ${socket.id} - User: ${socket.user.username || socket.user.userId}`);
+
+            // Update user's online status in database
+            await notificationService.updateOnlineStatus(socket.user.userId, false);
 
             // Get user's rooms from memory
             const userRooms = onlineUsers.get(socket.user.userId) || [];

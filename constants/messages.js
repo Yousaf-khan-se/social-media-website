@@ -29,6 +29,15 @@ const SUCCESS_MESSAGES = {
     CHAT_DELETED: 'Chat deleted successfully',
     MESSAGE_DELETED: 'Message deleted successfully',
     MEDIA_UPLOADED: 'Media uploaded successfully',
+    NOTIFICATION_MARKED_READ: 'Notification marked as read',
+    ALL_NOTIFICATIONS_MARKED_READ: 'All notifications marked as read',
+    NOTIFICATION_DELETED: 'Notification deleted successfully',
+    ALL_NOTIFICATIONS_CLEARED: 'All notifications cleared successfully',
+    FCM_TOKEN_ADDED: 'FCM token added successfully',
+    FCM_TOKEN_REMOVED: 'FCM token removed successfully',
+    NOTIFICATION_SETTINGS_UPDATED: 'Notification settings updated successfully',
+    POST_SHARED: 'Post shared successfully',
+    POST_UNSHARED: 'Post unshared successfully'
 };
 
 // Error Messages
