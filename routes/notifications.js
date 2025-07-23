@@ -64,18 +64,6 @@ router.put('/:notificationId/read',
 // Mark all notifications as read
 router.put('/read-all', notificationController.markAllAsRead);
 
-// Delete specific notification
-router.delete('/:notificationId',
-    [
-        param('notificationId').isMongoId().withMessage('Invalid notification ID')
-    ],
-    handleValidationErrors,
-    notificationController.deleteNotification
-);
-
-// Clear all notifications
-router.delete('/', notificationController.clearAllNotifications);
-
 // Add FCM token for push notifications
 router.post('/fcm-token',
     [
@@ -94,5 +82,18 @@ router.delete('/fcm-token',
     handleValidationErrors,
     notificationController.removeFCMToken
 );
+
+// Delete specific notification
+router.delete('/:notificationId',
+    [
+        param('notificationId').isMongoId().withMessage('Invalid notification ID')
+    ],
+    handleValidationErrors,
+    notificationController.deleteNotification
+);
+
+// Clear all notifications
+router.delete('/', notificationController.clearAllNotifications);
+
 
 module.exports = router;

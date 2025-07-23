@@ -9,7 +9,7 @@ const app = http.createServer(server);
 
 const io = new Server(app, {
     cors: {
-        origin: ['http://localhost:5173', 'http://localhost:3000', process.env.FRONTEND_URL],
+        origin: ['http://localhost:5173', 'http://localhost:5174', 'http://localhost:3000', process.env.FRONTEND_URL],
         credentials: true,
     },
 });

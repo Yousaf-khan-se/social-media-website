@@ -10,10 +10,21 @@ module.exports = function registerChatSocket(io) {
         console.log(`🟢 Socket connected: ${socket.id} - User: ${socket.user.userId}`);
 
         // Update user's online status in database
-        await notificationService.updateOnlineStatus(socket.user.userId, true);
+        try {
+            await notificationService.updateOnlineStatus(socket.user.userId, true);
+        } catch (error) {
+            console.error('Failed to update online status on connect:', error);
+        }
 
         // Fetch all rooms the user belongs to
-        const userRooms = await ChatRoom.find({ participants: socket.user.userId }).select('_id').lean();
+        let userRooms = [];
+        try {
+            userRooms = await ChatRoom.find({ participants: socket.user.userId }).select('_id').lean();
+        } catch (error) {
+            console.error('Failed to fetch user rooms:', error);
+            userRooms = []; // Continue with empty array
+        }
+
         const roomIds = userRooms.map(room => room._id.toString());
 
         // Store user's rooms in memory
@@ -51,7 +62,6 @@ module.exports = function registerChatSocket(io) {
                 }
 
                 socket.join(roomId);
-                console.log(`User ${socket.user.username || socket.user.userId} joined room: ${roomId}`);
 
                 // Notify other users in the room
                 socket.to(roomId).emit('userJoined', {
@@ -73,7 +83,6 @@ module.exports = function registerChatSocket(io) {
         // Leave chat room
         socket.on('leaveRoom', ({ roomId }) => {
             socket.leave(roomId);
-            console.log(`User ${socket.user.username || socket.user.userId} left room: ${roomId}`);
 
             // Notify other users in the room
             socket.to(roomId).emit('userLeft', {
@@ -143,8 +152,6 @@ module.exports = function registerChatSocket(io) {
                     messageType
                 ).catch(err => console.error('Message notification error:', err));
 
-                console.log(`Message sent in room ${roomId} by ${socket.user.username || socket.user.userId}`);
-
             } catch (error) {
                 console.error('Error sending message:', error);
                 socket.emit('error', { message: 'Failed to send message' });
@@ -211,7 +218,11 @@ module.exports = function registerChatSocket(io) {
             console.log(`🔴 Socket disconnected: ${socket.id} - User: ${socket.user.username || socket.user.userId}`);
 
             // Update user's online status in database
-            await notificationService.updateOnlineStatus(socket.user.userId, false);
+            try {
+                await notificationService.updateOnlineStatus(socket.user.userId, false);
+            } catch (error) {
+                console.error('Failed to update online status on disconnect:', error);
+            }
 
             // Get user's rooms from memory
             const userRooms = onlineUsers.get(socket.user.userId) || [];

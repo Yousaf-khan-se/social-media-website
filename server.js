@@ -19,7 +19,7 @@ const getAllowedOrigins = () => {
     }
 
     // Add localhost for development
-    origins.push('http://localhost:5173', 'http://localhost:3000', 'https://social-media-website-frontend-pied.vercel.app');
+    origins.push('http://localhost:5173', 'http://localhost:5174', 'http://localhost:3000', 'https://social-media-website-frontend-pied.vercel.app');
 
     return origins;
 };
@@ -67,8 +67,24 @@ const connectDB = async () => {
     }
 };
 
-// Initialize database connection
-connectDB();
+connectDB()
+
+// MongoDB connection event handlers
+mongoose.connection.on('connected', () => {
+    console.log('✅ Mongoose connected to MongoDB');
+});
+
+mongoose.connection.on('error', (err) => {
+    console.error('❌ Mongoose connection error:', err);
+});
+
+mongoose.connection.on('disconnected', () => {
+    console.log('⚠️ Mongoose disconnected from MongoDB');
+});
+
+mongoose.connection.on('reconnected', () => {
+    console.log('🔄 Mongoose reconnected to MongoDB');
+});
 
 // Routes
 server.get('/', (req, res) => {

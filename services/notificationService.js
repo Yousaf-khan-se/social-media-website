@@ -17,7 +17,6 @@ const sendPushNotification = async (userId, notification) => {
         // Get user's FCM tokens
         const user = await User.findById(userId).select('fcmTokens notificationSettings');
         if (!user || !user.fcmTokens || user.fcmTokens.length === 0) {
-            console.log(`No FCM tokens found for user ${userId}`);
             return null;
         }
 
@@ -26,7 +25,6 @@ const sendPushNotification = async (userId, notification) => {
         const notificationKey = getNotificationKey(notificationType);
 
         if (notificationKey && !user.notificationSettings[notificationKey]) {
-            console.log(`User ${userId} has disabled ${notificationType} notifications`);
             return null;
         }
 
@@ -143,7 +141,6 @@ const sendPushNotification = async (userId, notification) => {
             }
         }
 
-        console.log(`Push notification sent to user ${userId}: ${response.successCount}/${tokens.length} delivered`);
         return {
             success: response.successCount > 0,
             delivered: response.successCount,
@@ -430,7 +427,6 @@ const removeInvalidTokens = async (userId, invalidTokens) => {
             { _id: userId },
             { $pull: { fcmTokens: { token: { $in: invalidTokens } } } }
         );
-        console.log(`Removed ${invalidTokens.length} invalid tokens for user ${userId}`);
     } catch (error) {
         console.error('Error removing invalid tokens:', error);
     }
@@ -485,7 +481,7 @@ const removeFCMToken = async (userId, token) => {
 };
 
 /**
- * Update user's online status
+ * Update user's online status with proper timeout handling
  */
 const updateOnlineStatus = async (userId, isOnline) => {
     try {
@@ -497,6 +493,7 @@ const updateOnlineStatus = async (userId, isOnline) => {
         await User.updateOne({ _id: userId }, updateData);
     } catch (error) {
         console.error('Error updating online status:', error);
+        // Don't throw - this shouldn't break socket connection
     }
 };
 
