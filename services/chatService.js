@@ -1,6 +1,7 @@
 const Message = require('../models/Message');
 const ChatRoom = require('../models/ChatRoom');
 const { ERROR_MESSAGES } = require('../constants/messages');
+const settingsService = require('./settingsService');
 const cloudinary = require('cloudinary').v2;
 const dotenv = require('dotenv').config();
 const fs = require('fs');
@@ -13,10 +14,19 @@ cloudinary.config({
 });
 
 // Create a new chat room
-const createChatRoom = async (participants, isGroup = false, name = '') => {
+const createChatRoom = async (participants, isGroup = false, name = '', creatorId = null) => {
     try {
-        // Check if it's a one-on-one chat that already exists
+        // For one-on-one chats, check privacy settings
         if (!isGroup && participants.length === 2) {
+            const otherUserId = participants.find(id => id !== creatorId);
+            if (otherUserId && creatorId) {
+                const canMessage = await settingsService.canUserMessage(creatorId, otherUserId);
+                if (!canMessage.canMessage) {
+                    throw new Error(canMessage.reason);
+                }
+            }
+
+            // Check if it's a one-on-one chat that already exists
             const existingChat = await ChatRoom.findOne({
                 isGroup: false,
                 participants: { $all: participants, $size: 2 }
@@ -40,7 +50,7 @@ const createChatRoom = async (participants, isGroup = false, name = '') => {
 
         // Send notifications for chat creation
         const notificationService = require('./notificationService');
-        notificationService.sendChatCreatedNotification(chatRoom._id, participants[0])
+        notificationService.sendChatCreatedNotification(chatRoom._id, creatorId || participants[0])
             .catch(err => console.error('Chat creation notification error:', err));
 
         return newChatRoom;

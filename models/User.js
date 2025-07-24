@@ -81,33 +81,6 @@ const userSchema = new mongoose.Schema({
             default: Date.now
         }
     }],
-    // Notification preferences
-    notificationSettings: {
-        likes: {
-            type: Boolean,
-            default: true
-        },
-        comments: {
-            type: Boolean,
-            default: true
-        },
-        shares: {
-            type: Boolean,
-            default: true
-        },
-        follows: {
-            type: Boolean,
-            default: true
-        },
-        messages: {
-            type: Boolean,
-            default: true
-        },
-        groupChats: {
-            type: Boolean,
-            default: true
-        }
-    },
     // Online status for messaging notifications
     isOnline: {
         type: Boolean,

@@ -37,7 +37,15 @@ const SUCCESS_MESSAGES = {
     FCM_TOKEN_REMOVED: 'FCM token removed successfully',
     NOTIFICATION_SETTINGS_UPDATED: 'Notification settings updated successfully',
     POST_SHARED: 'Post shared successfully',
-    POST_UNSHARED: 'Post unshared successfully'
+    POST_UNSHARED: 'Post unshared successfully',
+    SETTINGS_UPDATED: 'Settings updated successfully',
+    SETTINGS_RESET: 'Settings reset successfully',
+    USER_BLOCKED: 'User blocked successfully',
+    USER_UNBLOCKED: 'User unblocked successfully',
+    KEYWORD_BLOCKED: 'Keyword blocked successfully',
+    KEYWORD_UNBLOCKED: 'Keyword unblocked successfully',
+    SETTINGS_EXPORTED: 'Settings exported successfully',
+    SETTINGS_IMPORTED: 'Settings imported successfully'
 };
 
 // Error Messages
@@ -70,7 +78,17 @@ const ERROR_MESSAGES = {
     MEDIA_UPLOAD_FAILED: 'Failed to upload media',
     INVALID_CHAT_DATA: 'Invalid chat data provided',
     PARTICIPANTS_REQUIRED: 'Participants are required',
-    INVALID_MESSAGE_TYPE: 'Invalid message type',
+    SETTINGS_NOT_FOUND: 'Settings not found',
+    SETTINGS_UPDATE_FAILED: 'Failed to update settings',
+    INVALID_SETTINGS_DATA: 'Invalid settings data provided',
+    CANNOT_BLOCK_YOURSELF: 'Cannot block yourself',
+    USER_ALREADY_BLOCKED: 'User is already blocked',
+    USER_NOT_BLOCKED: 'User is not blocked',
+    KEYWORD_ALREADY_BLOCKED: 'Keyword is already blocked',
+    KEYWORD_NOT_BLOCKED: 'Keyword is not blocked',
+    SETTINGS_EXPORT_FAILED: 'Failed to export settings',
+    SETTINGS_IMPORT_FAILED: 'Failed to import settings',
+    INVALID_MESSAGE_TYPE: 'Invalid message type'
 };
 
 // Validation Messages

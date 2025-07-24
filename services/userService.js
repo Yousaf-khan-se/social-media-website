@@ -1,5 +1,6 @@
 const User = require('../models/User');
 const { ERROR_MESSAGES } = require('../constants/messages');
+const settingsService = require('./settingsService');
 
 // Check if user exists by email or username
 const findExistingUser = async (email, username) => {
@@ -82,6 +83,12 @@ const countDocuments = async (filter) => {
 };
 
 const addFollower = async (userId, followId) => {
+    // Check if user can follow the target user
+    const canFollow = await settingsService.canUserFollow(userId, followId);
+    if (!canFollow.canFollow) {
+        throw new Error(canFollow.reason);
+    }
+
     // Add followId to user's following array
     let user = await User.findByIdAndUpdate(
         userId,

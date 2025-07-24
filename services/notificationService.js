@@ -1,6 +1,7 @@
 const admin = require('../config/firebase');
 const Notification = require('../models/Notification');
 const User = require('../models/User');
+const Settings = require('../models/Settings');
 
 /**
  * Send push notification using Firebase Cloud Messaging
@@ -14,9 +15,15 @@ const User = require('../models/User');
  */
 const sendPushNotification = async (userId, notification) => {
     try {
-        // Get user's FCM tokens
-        const user = await User.findById(userId).select('fcmTokens notificationSettings');
+        // Get user's FCM tokens and notification settings
+        const user = await User.findById(userId).select('fcmTokens');
         if (!user || !user.fcmTokens || user.fcmTokens.length === 0) {
+            return null;
+        }
+
+        // Get user's notification settings
+        const settings = await Settings.findOne({ user: userId }).select('notifications');
+        if (!settings) {
             return null;
         }
 
@@ -24,7 +31,7 @@ const sendPushNotification = async (userId, notification) => {
         const notificationType = notification.type;
         const notificationKey = getNotificationKey(notificationType);
 
-        if (notificationKey && !user.notificationSettings[notificationKey]) {
+        if (notificationKey && !settings.notifications[notificationKey]) {
             return null;
         }
 
@@ -237,7 +244,7 @@ const sendMessageNotification = async (chatRoomId, senderId, messageContent, mes
     try {
         const [sender, chatRoom] = await Promise.all([
             User.findById(senderId).select('firstName lastName username profilePicture isOnline'),
-            require('../models/ChatRoom').findById(chatRoomId).populate('participants', 'isOnline notificationSettings fcmTokens')
+            require('../models/ChatRoom').findById(chatRoomId).populate('participants', 'isOnline fcmTokens')
         ]);
 
         if (!sender || !chatRoom) return;
@@ -245,18 +252,34 @@ const sendMessageNotification = async (chatRoomId, senderId, messageContent, mes
         const senderName = `${sender.firstName} ${sender.lastName}`;
 
         // Get recipients (exclude sender)
-        const recipients = chatRoom.participants.filter(p =>
+        const offlineRecipients = chatRoom.participants.filter(p =>
             p._id.toString() !== senderId &&
-            !p.isOnline && // Only send to offline users for 1-on-1 chats
-            p.notificationSettings.messages
+            !p.isOnline // Only send to offline users for 1-on-1 chats
         );
 
+        // Check notification settings for each recipient
+        const validRecipients = [];
+        for (const recipient of offlineRecipients) {
+            const settings = await Settings.findOne({ user: recipient._id }).select('notifications');
+            if (settings && settings.notifications.messages) {
+                validRecipients.push(recipient);
+            }
+        }
+
         // For group chats, send to all participants except sender (regardless of online status)
-        const finalRecipients = chatRoom.isGroup ?
-            chatRoom.participants.filter(p =>
-                p._id.toString() !== senderId &&
-                p.notificationSettings.messages
-            ) : recipients;
+        let finalRecipients;
+        if (chatRoom.isGroup) {
+            const groupRecipients = chatRoom.participants.filter(p => p._id.toString() !== senderId);
+            finalRecipients = [];
+            for (const recipient of groupRecipients) {
+                const settings = await Settings.findOne({ user: recipient._id }).select('notifications');
+                if (settings && settings.notifications.groupChats) {
+                    finalRecipients.push(recipient);
+                }
+            }
+        } else {
+            finalRecipients = validRecipients;
+        }
 
         if (finalRecipients.length === 0) return;
 
@@ -311,18 +334,28 @@ const sendChatCreatedNotification = async (chatRoomId, creatorId) => {
     try {
         const [creator, chatRoom] = await Promise.all([
             User.findById(creatorId).select('firstName lastName username profilePicture'),
-            require('../models/ChatRoom').findById(chatRoomId).populate('participants', 'notificationSettings')
+            require('../models/ChatRoom').findById(chatRoomId).populate('participants')
         ]);
 
         if (!creator || !chatRoom) return;
 
         const creatorName = `${creator.firstName} ${creator.lastName}`;
 
-        // Get recipients (exclude creator)
-        const recipients = chatRoom.participants.filter(p =>
-            p._id.toString() !== creatorId &&
-            (chatRoom.isGroup ? p.notificationSettings.groupChats : p.notificationSettings.messages)
-        );
+        // Get recipients (exclude creator) and check their notification settings
+        const potentialRecipients = chatRoom.participants.filter(p => p._id.toString() !== creatorId);
+        const recipients = [];
+
+        for (const recipient of potentialRecipients) {
+            const settings = await Settings.findOne({ user: recipient._id }).select('notifications');
+            if (settings) {
+                const notificationEnabled = chatRoom.isGroup ?
+                    settings.notifications.groupChats :
+                    settings.notifications.messages;
+                if (notificationEnabled) {
+                    recipients.push(recipient);
+                }
+            }
+        }
 
         if (recipients.length === 0) return;
 

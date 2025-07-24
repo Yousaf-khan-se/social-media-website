@@ -35,23 +35,6 @@ router.get('/',
 // Get notification statistics
 router.get('/stats', notificationController.getNotificationStats);
 
-// Get notification settings
-router.get('/settings', notificationController.getNotificationSettings);
-
-// Update notification settings
-router.put('/settings',
-    [
-        body('likes').optional().isBoolean().withMessage('likes must be a boolean'),
-        body('comments').optional().isBoolean().withMessage('comments must be a boolean'),
-        body('shares').optional().isBoolean().withMessage('shares must be a boolean'),
-        body('follows').optional().isBoolean().withMessage('follows must be a boolean'),
-        body('messages').optional().isBoolean().withMessage('messages must be a boolean'),
-        body('groupChats').optional().isBoolean().withMessage('groupChats must be a boolean')
-    ],
-    handleValidationErrors,
-    notificationController.updateNotificationSettings
-);
-
 // Mark specific notification as read
 router.put('/:notificationId/read',
     [

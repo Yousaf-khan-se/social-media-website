@@ -215,65 +215,6 @@ const removeFCMToken = async (req, res) => {
 /**
  * Update notification preferences
  */
-const updateNotificationSettings = async (req, res) => {
-    try {
-        const userId = req.user.userId;
-        const { likes, comments, shares, follows, messages, groupChats } = req.body;
-
-        const User = require('../models/User');
-        const user = await User.findById(userId);
-
-        if (!user) {
-            return ResponseHandler.notFound(res, 'User not found');
-        }
-
-        // Update notification settings
-        const settings = user.notificationSettings;
-        if (typeof likes === 'boolean') settings.likes = likes;
-        if (typeof comments === 'boolean') settings.comments = comments;
-        if (typeof shares === 'boolean') settings.shares = shares;
-        if (typeof follows === 'boolean') settings.follows = follows;
-        if (typeof messages === 'boolean') settings.messages = messages;
-        if (typeof groupChats === 'boolean') settings.groupChats = groupChats;
-
-        await user.save();
-
-        return ResponseHandler.success(res, {
-            notificationSettings: user.notificationSettings,
-            message: 'Notification settings updated successfully'
-        });
-
-    } catch (error) {
-        console.error('Update notification settings error:', error);
-        return ResponseHandler.internalError(res, 'Failed to update notification settings');
-    }
-};
-
-/**
- * Get notification settings
- */
-const getNotificationSettings = async (req, res) => {
-    try {
-        const userId = req.user.userId;
-        const User = require('../models/User');
-
-        const user = await User.findById(userId).select('notificationSettings');
-
-        if (!user) {
-            return ResponseHandler.notFound(res, 'User not found');
-        }
-
-        return ResponseHandler.success(res, {
-            notificationSettings: user.notificationSettings,
-            message: 'Notification settings fetched successfully'
-        });
-
-    } catch (error) {
-        console.error('Get notification settings error:', error);
-        return ResponseHandler.internalError(res, 'Failed to fetch notification settings');
-    }
-};
-
 /**
  * Get notification statistics
  */
@@ -354,7 +295,5 @@ module.exports = {
     clearAllNotifications,
     addFCMToken,
     removeFCMToken,
-    updateNotificationSettings,
-    getNotificationSettings,
     getNotificationStats
 };

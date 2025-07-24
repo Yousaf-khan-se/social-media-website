@@ -108,6 +108,7 @@ const postRoutes = require('./routes/posts');
 const userRoutes = require('./routes/users');
 const chatRoutes = require('./routes/chats');
 const notificationRoutes = require('./routes/notifications');
+const settingsRoutes = require('./routes/settings');
 
 // Use routes
 server.use('/api/auth', authRoutes);
@@ -115,6 +116,7 @@ server.use('/api/posts', postRoutes);
 server.use('/api/users', userRoutes);
 server.use('/api/chats', chatRoutes);
 server.use('/api/notifications', notificationRoutes);
+server.use('/api/settings', settingsRoutes);
 
 // Global error handler
 server.use((error, req, res, next) => {
