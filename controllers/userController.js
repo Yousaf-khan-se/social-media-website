@@ -158,8 +158,7 @@ const searchUsers = async (req, res) => {
                 ...searchRegexes.map(r => ({ firstName: r })),
                 ...searchRegexes.map(r => ({ lastName: r })),
                 ...searchRegexes.map(r => ({ username: r })),
-                ...searchRegexes.map(r => ({ email: r })),
-                ...searchRegexes.map(r => ({ bio: r }))
+                ...searchRegexes.map(r => ({ email: r }))
             ]
         };
 
@@ -189,6 +188,8 @@ const searchUsers = async (req, res) => {
         return ResponseHandler.internalError(res, 'Failed to search users');
     }
 };
+
+
 
 // get following of a user
 const getUserFollowing = async (req, res) => {

@@ -1,4 +1,5 @@
 const chatService = require('../services/chatService');
+const chatPermissionService = require('../services/chatPermissionService');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
@@ -45,7 +46,7 @@ const upload = multer({
 // Create a new chat room
 const createChat = async (req, res) => {
     try {
-        const { participants, isGroup = false, name = '' } = req.body;
+        const { participants, isGroup = false, name = '', message = '' } = req.body;
         const userId = req.user.userId;
         console.log('req:', userId);
 
@@ -75,6 +76,41 @@ const createChat = async (req, res) => {
             }
         }
 
+        // For one-on-one chats, check chat permissions
+        if (!isGroup) {
+            const otherParticipantId = allParticipants.find(id => id !== userId);
+
+            const permissionCheck = await chatPermissionService.checkChatPermission(userId, otherParticipantId);
+
+            if (!permissionCheck.canCreate) {
+                if (permissionCheck.requiresPermission) {
+                    // Create a permission request
+                    try {
+                        const permissionRequest = await chatPermissionService.createChatPermissionRequest(
+                            userId,
+                            otherParticipantId,
+                            { participants: allParticipants, isGroup, name },
+                            message
+                        );
+
+                        return ResponseHandler.success(res, {
+                            permissionRequest,
+                            message: 'Chat permission request sent. The user will be notified.',
+                            requiresPermission: true
+                        });
+                    } catch (permissionError) {
+                        if (permissionError.message.includes('already pending')) {
+                            return ResponseHandler.badRequest(res, 'A chat permission request is already pending with this user');
+                        }
+                        throw permissionError;
+                    }
+                } else {
+                    return ResponseHandler.forbidden(res, permissionCheck.reason);
+                }
+            }
+        }
+
+        // If we reach here, either it's a group chat or permission is granted
         const chatRoom = await chatService.createChatRoom(allParticipants, isGroup, name);
 
         return ResponseHandler.created(res, {
@@ -276,11 +312,74 @@ const addMediaToChat = [
     }
 ];
 
+// Get chat permission requests
+const getChatPermissionRequests = async (req, res) => {
+    try {
+        const userId = req.user.userId;
+        const { type = 'received' } = req.query; // 'received' or 'sent'
+
+        const requests = await chatPermissionService.getChatPermissionRequests(userId, type);
+
+        return ResponseHandler.success(res, {
+            requests,
+            message: `${type === 'received' ? 'Received' : 'Sent'} chat permission requests fetched successfully`
+        });
+
+    } catch (error) {
+        console.error('Get chat permission requests error:', error);
+        return ResponseHandler.internalError(res, error.message || 'Failed to fetch chat permission requests');
+    }
+};
+
+// Respond to chat permission request
+const respondToChatPermissionRequest = async (req, res) => {
+    try {
+        const { requestId } = req.params;
+        const { response } = req.body; // 'approved' or 'denied'
+        const userId = req.user.userId;
+
+        // Validation
+        if (!requestId) {
+            return ResponseHandler.badRequest(res, 'Request ID is required');
+        }
+
+        if (!response || !['approved', 'denied'].includes(response)) {
+            return ResponseHandler.badRequest(res, 'Response must be either "approved" or "denied"');
+        }
+
+        const result = await chatPermissionService.respondToChatPermissionRequest(requestId, userId, response);
+
+        const message = response === 'approved'
+            ? 'Chat permission request approved and chat created successfully'
+            : 'Chat permission request denied';
+
+        return ResponseHandler.success(res, {
+            ...result,
+            message
+        });
+
+    } catch (error) {
+        console.error('Respond to chat permission request error:', error);
+        if (error.message === 'Permission request not found') {
+            return ResponseHandler.notFound(res, 'Chat permission request not found');
+        }
+        if (error.message === 'Not authorized to respond to this request') {
+            return ResponseHandler.unauthorized(res, 'Not authorized to respond to this request');
+        }
+        if (error.message === 'This request has already been responded to') {
+            return ResponseHandler.badRequest(res, 'This request has already been responded to');
+        }
+        return ResponseHandler.internalError(res, error.message || 'Failed to respond to chat permission request');
+    }
+};
+
 module.exports = {
     createChat,
     getAllUserChats,
     getChatById,
     deleteChat,
     deleteMessage,
-    addMediaToChat
+    addMediaToChat,
+    getChatPermissionRequests,
+    respondToChatPermissionRequest
 };

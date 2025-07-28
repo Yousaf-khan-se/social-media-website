@@ -45,6 +45,11 @@ class ResponseHandler {
         return this.error(res, message, HTTP_STATUS.NOT_FOUND);
     }
 
+    // Forbidden response
+    static forbidden(res, message) {
+        return this.error(res, message, HTTP_STATUS.FORBIDDEN);
+    }
+
     // Validation error response
     static validationError(res, errors) {
         return this.badRequest(res, 'Validation failed', { errors });

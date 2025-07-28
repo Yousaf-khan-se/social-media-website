@@ -49,24 +49,24 @@ const sendPushNotification = async (userId, notification) => {
             tokens: tokens
         };
 
-        // Add platform-specific options
-        fcmMessage.android = {
-            notification: {
-                icon: 'ic_notification',
-                color: '#1976D2',
-                sound: 'default',
-                click_action: 'FLUTTER_NOTIFICATION_CLICK'
-            }
-        };
+        // // Add platform-specific options
+        // fcmMessage.android = {
+        //     notification: {
+        //         icon: 'ic_notification',
+        //         color: '#1976D2',
+        //         sound: 'default',
+        //         click_action: 'FLUTTER_NOTIFICATION_CLICK'
+        //     }
+        // };
 
-        fcmMessage.apns = {
-            payload: {
-                aps: {
-                    badge: await getUnreadNotificationCount(userId),
-                    sound: 'default'
-                }
-            }
-        };
+        // fcmMessage.apns = {
+        //     payload: {
+        //         aps: {
+        //             badge: await getUnreadNotificationCount(userId),
+        //             sound: 'default'
+        //         }
+        //     }
+        // };
 
         fcmMessage.webpush = {
             notification: {
@@ -82,9 +82,8 @@ const sendPushNotification = async (userId, notification) => {
             // Try the newer method first
             if (admin.messaging().sendEachForMulticast) {
                 response = await admin.messaging().sendEachForMulticast(fcmMessage);
-            } else if (admin.messaging().sendMulticast) {
-                response = await admin.messaging().sendMulticast(fcmMessage);
-            } else {
+            }
+            else {
                 // Fallback to sending individual messages
                 const promises = tokens.map(token => {
                     const message = {
@@ -177,6 +176,51 @@ const sendPushNotification = async (userId, notification) => {
         }
 
         return null;
+    }
+};
+
+/**
+ * Create and save a notification to the database with optional push notification
+ * @param {Object} notificationData - Notification data
+ * @param {string} notificationData.recipient - Recipient user ID
+ * @param {string} notificationData.sender - Sender user ID
+ * @param {string} notificationData.type - Notification type
+ * @param {string} notificationData.title - Notification title
+ * @param {string} notificationData.body - Notification body
+ * @param {Object} notificationData.data - Additional data payload
+ * @param {boolean} sendPush - Whether to send push notification (default: true)
+ */
+const createNotification = async (notificationData, sendPush = true) => {
+    try {
+        // Create notification document
+        const notificationDoc = new Notification({
+            recipient: notificationData.recipient,
+            sender: notificationData.sender,
+            type: notificationData.type,
+            title: notificationData.title,
+            body: notificationData.body,
+            data: notificationData.data || {}
+        });
+
+        // Save to database
+        await notificationDoc.save();
+
+        // Send push notification if requested
+        if (sendPush) {
+            await sendPushNotification(notificationData.recipient, {
+                senderId: notificationData.sender,
+                type: notificationData.type,
+                title: notificationData.title,
+                body: notificationData.body,
+                data: notificationData.data || {}
+            });
+        }
+
+        return notificationDoc;
+
+    } catch (error) {
+        console.error('Error creating notification:', error);
+        throw error;
     }
 };
 
@@ -431,7 +475,8 @@ const getNotificationKey = (type) => {
         'message': 'messages',
         'chat_created': 'messages',
         'group_created': 'groupChats',
-        'group_added': 'groupChats'
+        'group_added': 'groupChats',
+        'chat_permission_request': 'messages'
     };
     return keyMap[type];
 };
@@ -532,6 +577,7 @@ const updateOnlineStatus = async (userId, isOnline) => {
 
 module.exports = {
     sendPushNotification,
+    createNotification,
     sendPostNotification,
     sendMessageNotification,
     sendChatCreatedNotification,

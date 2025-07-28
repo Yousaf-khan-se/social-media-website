@@ -6,7 +6,8 @@ const {
     validateCreateChat,
     validateChatId,
     validateMessageId,
-    validatePagination
+    validatePagination,
+    validateChatPermissionResponse
 } = require('../validators/chatValidator');
 const { validationResult } = require('express-validator');
 
@@ -33,5 +34,9 @@ router.delete('/:roomId', validateChatId, handleValidationErrors, chatController
 router.get('/:roomId/messages', validateChatId, validatePagination, handleValidationErrors, chatController.getChatById);
 router.delete('/message/:messageId', validateMessageId, handleValidationErrors, chatController.deleteMessage);
 router.put('/media/:roomId', validateChatId, handleValidationErrors, chatController.addMediaToChat);
+
+// Chat permission request routes
+router.get('/permission-requests', chatController.getChatPermissionRequests);
+router.post('/permission-requests/:requestId/respond', validateChatPermissionResponse, handleValidationErrors, chatController.respondToChatPermissionRequest);
 
 module.exports = router;

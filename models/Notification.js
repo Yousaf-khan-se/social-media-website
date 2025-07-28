@@ -22,7 +22,8 @@ const notificationSchema = new mongoose.Schema({
             'message',
             'chat_created',
             'group_created',
-            'group_added'
+            'group_added',
+            'chat_permission_request'
         ],
         required: true,
         index: true

@@ -45,7 +45,10 @@ const SUCCESS_MESSAGES = {
     KEYWORD_BLOCKED: 'Keyword blocked successfully',
     KEYWORD_UNBLOCKED: 'Keyword unblocked successfully',
     SETTINGS_EXPORTED: 'Settings exported successfully',
-    SETTINGS_IMPORTED: 'Settings imported successfully'
+    SETTINGS_IMPORTED: 'Settings imported successfully',
+    CHAT_PERMISSION_REQUEST_SENT: 'Chat permission request sent successfully',
+    CHAT_PERMISSION_REQUEST_APPROVED: 'Chat permission request approved',
+    CHAT_PERMISSION_REQUEST_DENIED: 'Chat permission request denied'
 };
 
 // Error Messages
@@ -88,7 +91,11 @@ const ERROR_MESSAGES = {
     KEYWORD_NOT_BLOCKED: 'Keyword is not blocked',
     SETTINGS_EXPORT_FAILED: 'Failed to export settings',
     SETTINGS_IMPORT_FAILED: 'Failed to import settings',
-    INVALID_MESSAGE_TYPE: 'Invalid message type'
+    INVALID_MESSAGE_TYPE: 'Invalid message type',
+    CHAT_PERMISSION_REQUEST_NOT_FOUND: 'Chat permission request not found',
+    CHAT_PERMISSION_REQUEST_ALREADY_RESPONDED: 'Chat permission request has already been responded to',
+    CHAT_PERMISSION_REQUEST_FAILED: 'Failed to create chat permission request',
+    CHAT_PERMISSION_RESPONSE_FAILED: 'Failed to respond to chat permission request'
 };
 
 // Validation Messages

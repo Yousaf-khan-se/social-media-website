@@ -21,7 +21,13 @@ const validateCreateChat = [
         .isString()
         .trim()
         .isLength({ min: 1, max: 50 })
-        .withMessage('Group name must be between 1 and 50 characters')
+        .withMessage('Group name must be between 1 and 50 characters'),
+    body('message')
+        .optional()
+        .isString()
+        .trim()
+        .isLength({ max: 500 })
+        .withMessage('Message cannot exceed 500 characters')
 ];
 
 // Validation for chat room ID parameter
@@ -69,10 +75,21 @@ const validateSendMessage = [
         .withMessage('Caption cannot exceed 200 characters')
 ];
 
+// Validation for responding to chat permission request
+const validateChatPermissionResponse = [
+    param('requestId')
+        .isMongoId()
+        .withMessage('Invalid request ID provided'),
+    body('response')
+        .isIn(['approved', 'denied'])
+        .withMessage('Response must be either "approved" or "denied"')
+];
+
 module.exports = {
     validateCreateChat,
     validateChatId,
     validateMessageId,
     validatePagination,
-    validateSendMessage
+    validateSendMessage,
+    validateChatPermissionResponse
 };
