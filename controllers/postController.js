@@ -514,6 +514,76 @@ const addComment = async (req, res) => {
     }
 };
 
+// Add reply to comment to post
+const addCommentReply = async (req, res) => {
+    try {
+        const { postId, commentId } = req.params;
+
+        // Validate post ID
+        const idValidation = validatePostId(postId);
+        if (!idValidation.isValid) {
+            return ResponseHandler.validationError(res, idValidation.errors);
+        }
+
+        // Validate comment data
+        const validation = validateComment(req.body);
+        if (!validation.isValid) {
+            return ResponseHandler.validationError(res, validation.errors);
+        }
+
+        const commentReplyData = {
+            ...req.body,
+            user: req.user.userId
+        };
+
+        const post = await postService.addCommentReply(postId, commentId, commentReplyData);
+
+        return ResponseHandler.success(res, {
+            message: SUCCESS_MESSAGES.COMMENT_REPLY_ADDED,
+            post
+        });
+
+    } catch (error) {
+        console.error('Add comment reply error:', error);
+
+        if (error.message === ERROR_MESSAGES.POST_NOT_FOUND) {
+            return ResponseHandler.notFound(res, error.message);
+        }
+
+        return ResponseHandler.internalError(res, 'Failed to add comment reply');
+    }
+};
+
+
+// delete reply to comment to post
+const deleteCommentReply = async (req, res) => {
+    try {
+        const { postId, commentId, replyId } = req.params;
+
+        // Validate post ID
+        const idValidation = validatePostId(postId);
+        if (!idValidation.isValid) {
+            return ResponseHandler.validationError(res, idValidation.errors);
+        }
+
+        await postService.deleteCommentReply(postId, commentId, replyId, req.user.userId);
+
+        return ResponseHandler.success(res, {
+            message: SUCCESS_MESSAGES.COMMENT_REPLY_DELETED
+        });
+
+    } catch (error) {
+        console.error('Delete comment reply error:', error);
+
+        if (error.message === ERROR_MESSAGES.POST_NOT_FOUND) {
+            return ResponseHandler.notFound(res, error.message);
+        }
+
+        return ResponseHandler.internalError(res, 'Failed to add comment reply');
+    }
+};
+
+
 // Delete comment
 const deleteComment = async (req, res) => {
     try {
@@ -597,5 +667,7 @@ module.exports = {
     addComment,
     deleteComment,
     searchPosts,
-    addMediaToPost
+    addMediaToPost,
+    addCommentReply,
+    deleteCommentReply
 };

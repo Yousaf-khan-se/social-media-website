@@ -14,24 +14,24 @@ const postSchema = new mongoose.Schema({
     },
     media: {
         type: [
-        {
-            secure_url: { type: String, required: true },
-            public_id: { type: String, required: true },
-            resource_type: { type: String },
-            format: { type: String },
-            width: { type: Number },
-            height: { type: Number },
-            bytes: { type: Number },
-            eager: { type: Array },
-            responsive_urls: { type: Object },
-            uploaded_at: { type: Date }
-        }
-    ],
+            {
+                secure_url: { type: String, required: true },
+                public_id: { type: String, required: true },
+                resource_type: { type: String },
+                format: { type: String },
+                width: { type: Number },
+                height: { type: Number },
+                bytes: { type: Number },
+                eager: { type: Array },
+                responsive_urls: { type: Object },
+                uploaded_at: { type: Date }
+            }
+        ],
         validate: {
-        validator: function (arr) {
-            return arr.length <= 10; // Maximum 10 media files per post
-        },
-        message: 'Cannot upload more than 10 media files per post'
+            validator: function (arr) {
+                return arr.length <= 10; // Maximum 10 media files per post
+            },
+            message: 'Cannot upload more than 10 media files per post'
         }
     },
     likes: [{
@@ -67,6 +67,23 @@ const postSchema = new mongoose.Schema({
                 ref: 'User'
             },
             likedAt: {
+                type: Date,
+                default: Date.now
+            }
+        }],
+        replies: [{
+            user: {
+                type: mongoose.Schema.Types.ObjectId,
+                ref: 'User',
+                required: true
+            },
+            content: {
+                type: String,
+                required: [true, 'Reply content is required'],
+                maxlength: [500, 'Reply cannot exceed 500 characters'],
+                trim: true
+            },
+            createdAt: {
                 type: Date,
                 default: Date.now
             }

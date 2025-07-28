@@ -23,5 +23,7 @@ router.post('/:postId/like', postController.toggleLike);      // Like/Unlike pos
 router.post('/:postId/share', postController.toggleShare);    // Share/Unshare post
 router.post('/:postId/comments', postController.addComment);  // Add comment
 router.delete('/:postId/comments/:commentId', postController.deleteComment); // Delete comment
+router.post('/:postId/comments/:commentId/reply', postController.addCommentReply); // add comment reply
+router.delete('/:postId/comments/:commentId/reply/:replyId', postController.deleteCommentReply); // delete comment reply
 
 module.exports = router;

@@ -48,7 +48,9 @@ const SUCCESS_MESSAGES = {
     SETTINGS_IMPORTED: 'Settings imported successfully',
     CHAT_PERMISSION_REQUEST_SENT: 'Chat permission request sent successfully',
     CHAT_PERMISSION_REQUEST_APPROVED: 'Chat permission request approved',
-    CHAT_PERMISSION_REQUEST_DENIED: 'Chat permission request denied'
+    CHAT_PERMISSION_REQUEST_DENIED: 'Chat permission request denied',
+    COMMENT_REPLY_ADDED: 'Comment reply added successfully',
+    COMMENT_REPLY_DELETED: 'Comment reply deleted successfully',
 };
 
 // Error Messages

@@ -11,27 +11,30 @@ cloudinary.config({
     api_secret: process.env.CLOUDINARY_API_SECRET
 });
 
+// Helper function for standardized post population
+const getPostPopulationConfig = () => [
+    { path: 'author', select: 'username firstName lastName profilePicture' },
+    { path: 'comments.user', select: 'username firstName lastName profilePicture' },
+    { path: 'likes.user', select: 'username firstName lastName profilePicture' },
+    { path: 'shares.user', select: 'username firstName lastName profilePicture' },
+    { path: 'comments.replies.user', select: 'username firstName lastName profilePicture' }
+];
+
+// Helper function to get populated post by ID
+const getPopulatedPost = async (postId) => {
+    return await Post.findById(postId).populate(getPostPopulationConfig());
+};
+
 // Create a new post
 const createPost = async (postData) => {
     const post = new Post(postData);
     await post.save();
-    return await post.populate([
-        { path: 'author', select: 'username firstName lastName profilePicture' },
-        { path: 'comments.user', select: 'username firstName lastName profilePicture' },
-        { path: 'likes.user', select: 'username firstName lastName profilePicture' },
-        { path: 'shares.user', select: 'username firstName lastName profilePicture' }
-    ]);
+    return await post.populate(getPostPopulationConfig());
 };
 
 // Get post by ID
 const getPostById = async (postId) => {
-    return await Post.findById(postId)
-        .populate([
-            { path: 'author', select: 'username firstName lastName profilePicture' },
-            { path: 'comments.user', select: 'username firstName lastName profilePicture' },
-            { path: 'likes.user', select: 'username firstName lastName profilePicture' },
-            { path: 'shares.user', select: 'username firstName lastName profilePicture' }
-        ]);
+    return await getPopulatedPost(postId);
 };
 
 // Get posts by user ID
@@ -39,12 +42,7 @@ const getPostsByUserId = async (userId, page = 1, limit = 10) => {
     const skip = (page - 1) * limit;
 
     return await Post.find({ author: userId, isPublic: true })
-        .populate([
-            { path: 'author', select: 'username firstName lastName profilePicture' },
-            { path: 'comments.user', select: 'username firstName lastName profilePicture' },
-            { path: 'likes.user', select: 'username firstName lastName profilePicture' },
-            { path: 'shares.user', select: 'username firstName lastName profilePicture' }
-        ])
+        .populate(getPostPopulationConfig())
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limit);
@@ -58,12 +56,7 @@ const getFeedPosts = async (followingIds, page = 1, limit = 10) => {
         author: { $in: followingIds },
         isPublic: true
     })
-        .populate([
-            { path: 'author', select: 'username firstName lastName profilePicture' },
-            { path: 'comments.user', select: 'username firstName lastName profilePicture' },
-            { path: 'likes.user', select: 'username firstName lastName profilePicture' },
-            { path: 'shares.user', select: 'username firstName lastName profilePicture' }
-        ])
+        .populate(getPostPopulationConfig())
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limit);
@@ -74,12 +67,7 @@ const getPublicPosts = async (page = 1, limit = 10) => {
     const skip = (page - 1) * limit;
 
     return await Post.find({ isPublic: true })
-        .populate([
-            { path: 'author', select: 'username firstName lastName profilePicture' },
-            { path: 'comments.user', select: 'username firstName lastName profilePicture' },
-            { path: 'likes.user', select: 'username firstName lastName profilePicture' },
-            { path: 'shares.user', select: 'username firstName lastName profilePicture' }
-        ])
+        .populate(getPostPopulationConfig())
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limit);
@@ -92,12 +80,7 @@ const updatePost = async (postId, updateData) => {
         updateData,
         { new: true, runValidators: true }
     )
-        .populate([
-            { path: 'author', select: 'username firstName lastName profilePicture' },
-            { path: 'comments.user', select: 'username firstName lastName profilePicture' },
-            { path: 'likes.user', select: 'username firstName lastName profilePicture' },
-            { path: 'shares.user', select: 'username firstName lastName profilePicture' }
-        ])
+        .populate(getPostPopulationConfig());
 };
 
 // Delete post
@@ -139,74 +122,181 @@ const toggleLike = async (postId, userId) => {
 
     await post.save();
     const updatedPost = await Post.findById(post._id)
-        .populate([
-            { path: 'author', select: 'username firstName lastName profilePicture' },
-            { path: 'comments.user', select: 'username firstName lastName profilePicture' },
-            { path: 'likes.user', select: 'username firstName lastName profilePicture' },
-            { path: 'shares.user', select: 'username firstName lastName profilePicture' }
-        ])
+        .populate(getPostPopulationConfig());
 
     return { post: updatedPost, isLiked };
 };
 
 // Add comment to post
 const addComment = async (postId, commentData) => {
-    const post = await Post.findById(postId);
-    if (!post) {
-        throw new Error(ERROR_MESSAGES.POST_NOT_FOUND || 'Post not found');
+    try {
+        const post = await Post.findById(postId);
+        if (!post) {
+            throw new Error(ERROR_MESSAGES.POST_NOT_FOUND || 'Post not found');
+        }
+
+        post.comments.push(commentData);
+        await post.save();
+
+        // Send notification for new comment (only if not commenting on own post)
+        if (post.author.toString() !== commentData.user.toString()) {
+            const notificationService = require('./notificationService');
+            // Non-blocking notification
+            notificationService.sendPostNotification(
+                postId,
+                commentData.user,
+                post.author.toString(),
+                'comment',
+                { commentContent: commentData.content }
+            ).catch(err => console.error('Comment notification error:', err));
+        }
+
+        // Return populated post in a single query
+        return await getPopulatedPost(post._id);
+
+    } catch (error) {
+        console.error('Error adding comment:', error);
+        throw error;
     }
-
-    post.comments.push(commentData);
-    await post.save();
-
-    // Send notification for new comment (only if not commenting on own post)
-    if (post.author.toString() !== commentData.user.toString()) {
-        const notificationService = require('./notificationService');
-        // Non-blocking notification
-        notificationService.sendPostNotification(
-            postId,
-            commentData.user,
-            post.author.toString(),
-            'comment',
-            { commentContent: commentData.content }
-        ).catch(err => console.error('Comment notification error:', err));
-    }
-
-    return await Post.findById(post._id)
-        .populate([
-            { path: 'author', select: 'username firstName lastName profilePicture' },
-            { path: 'comments.user', select: 'username firstName lastName profilePicture' },
-            { path: 'likes.user', select: 'username firstName lastName profilePicture' },
-            { path: 'shares.user', select: 'username firstName lastName profilePicture' }
-        ])
 };
+
+// Add comment reply to post
+const addCommentReply = async (postId, commentId, commentReply) => {
+    try {
+        const post = await Post.findById(postId);
+        if (!post) {
+            throw new Error(ERROR_MESSAGES.POST_NOT_FOUND || 'Post not found');
+        }
+
+        const comment = post.comments.id(commentId);
+        if (!comment) {
+            throw new Error(ERROR_MESSAGES.COMMENT_NOT_FOUND || 'Comment not found');
+        }
+
+        // Add the reply to the comment
+        comment.replies.push(commentReply);
+        await post.save();
+
+        // Send notification for new reply (only if not replying to own comment or post)
+        const shouldNotifyPostAuthor = post.author.toString() !== commentReply.user.toString();
+        const shouldNotifyCommentAuthor = comment.user.toString() !== commentReply.user.toString();
+
+        if (shouldNotifyPostAuthor || shouldNotifyCommentAuthor) {
+            const notificationService = require('./notificationService');
+
+            // Notify post author if different from reply author
+            if (shouldNotifyPostAuthor) {
+                notificationService.sendPostNotification(
+                    postId,
+                    commentReply.user,
+                    post.author.toString(),
+                    'comment',
+                    {
+                        commentContent: commentReply.content,
+                        isReply: true,
+                        parentCommentId: commentId
+                    }
+                ).catch(err => console.error('Reply notification to post author error:', err));
+            }
+
+            // Notify original comment author if different from both reply author and post author
+            if (shouldNotifyCommentAuthor && comment.user.toString() !== post.author.toString()) {
+                notificationService.sendPostNotification(
+                    postId,
+                    commentReply.user,
+                    comment.user.toString(),
+                    'comment',
+                    {
+                        commentContent: commentReply.content,
+                        isReply: true,
+                        parentCommentId: commentId
+                    }
+                ).catch(err => console.error('Reply notification to comment author error:', err));
+            }
+        }
+
+        // Return populated post in a single query
+        return await getPopulatedPost(post._id);
+
+    } catch (error) {
+        console.error('Error adding comment reply:', error);
+        throw error;
+    }
+};
+
+// Delete comment reply from post
+const deleteCommentReply = async (postId, commentId, replyId, userId) => {
+    try {
+        const post = await Post.findById(postId);
+        if (!post) {
+            throw new Error(ERROR_MESSAGES.POST_NOT_FOUND || 'Post not found');
+        }
+
+        const comment = post.comments.id(commentId);
+        if (!comment) {
+            throw new Error(ERROR_MESSAGES.COMMENT_NOT_FOUND || 'Comment not found');
+        }
+
+        const reply = comment.replies.id(replyId);
+        if (!reply) {
+            throw new Error('Reply not found');
+        }
+
+        // Check authorization: user owns the reply, comment, or post
+        const canDelete = reply.user.toString() === userId.toString() ||
+            comment.user.toString() === userId.toString() ||
+            post.author.toString() === userId.toString();
+
+        if (!canDelete) {
+            throw new Error('Not authorized to delete this reply');
+        }
+
+        // Remove the reply
+        comment.replies.pull(replyId);
+        await post.save();
+
+        // Return populated post in a single query
+        return await getPopulatedPost(post._id);
+
+    } catch (error) {
+        console.error('Error deleting comment reply:', error);
+        throw error;
+    }
+};
+
 
 // Delete comment from post
 const deleteComment = async (postId, commentId, userId) => {
-    const post = await Post.findById(postId);
-    if (!post) {
-        throw new Error(ERROR_MESSAGES.POST_NOT_FOUND || 'Post not found');
-    }
+    try {
+        const post = await Post.findById(postId);
+        if (!post) {
+            throw new Error(ERROR_MESSAGES.POST_NOT_FOUND || 'Post not found');
+        }
 
-    const comment = post.comments.id(commentId);
-    if (!comment) {
-        throw new Error('Comment not found');
-    }
+        const comment = post.comments.id(commentId);
+        if (!comment) {
+            throw new Error(ERROR_MESSAGES.COMMENT_NOT_FOUND || 'Comment not found');
+        }
 
-    // Check if user owns the comment or the post
-    if (comment.user.toString() !== userId.toString() && post.author.toString() !== userId.toString()) {
-        throw new Error('Not authorized to delete this comment');
-    }
+        // Check authorization: user owns the comment or the post
+        const canDelete = comment.user.toString() === userId.toString() ||
+            post.author.toString() === userId.toString();
 
-    post.comments.pull(commentId);
-    await post.save();
-    return await Post.findById(post._id)
-        .populate([
-            { path: 'author', select: 'username firstName lastName profilePicture' },
-            { path: 'comments.user', select: 'username firstName lastName profilePicture' },
-            { path: 'likes.user', select: 'username firstName lastName profilePicture' },
-            { path: 'shares.user', select: 'username firstName lastName profilePicture' }
-        ])
+        if (!canDelete) {
+            throw new Error('Not authorized to delete this comment');
+        }
+
+        // Remove the comment
+        post.comments.pull(commentId);
+        await post.save();
+
+        // Return populated post in a single query
+        return { _id: post._id };
+
+    } catch (error) {
+        console.error('Error deleting comment:', error);
+        throw error;
+    }
 };
 
 // Share/Unshare post
@@ -243,12 +333,7 @@ const toggleShare = async (postId, userId) => {
 
     await post.save();
     const updatedPost = await Post.findById(post._id)
-        .populate([
-            { path: 'author', select: 'username firstName lastName profilePicture' },
-            { path: 'comments.user', select: 'username firstName lastName profilePicture' },
-            { path: 'likes.user', select: 'username firstName lastName profilePicture' },
-            { path: 'shares.user', select: 'username firstName lastName profilePicture' }
-        ])
+        .populate(getPostPopulationConfig());
 
     return { post: updatedPost, isShared };
 };
@@ -264,12 +349,7 @@ const searchPosts = async (query, page = 1, limit = 10) => {
             ...words.map(word => ({ tags: { $in: [new RegExp(word, 'i')] } }))
         ]
     })
-        .populate([
-            { path: 'author', select: 'username firstName lastName profilePicture' },
-            { path: 'comments.user', select: 'username firstName lastName profilePicture' },
-            { path: 'likes.user', select: 'username firstName lastName profilePicture' },
-            { path: 'shares.user', select: 'username firstName lastName profilePicture' }
-        ])
+        .populate(getPostPopulationConfig())
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limit);
@@ -283,12 +363,7 @@ const getPostsByTag = async (tag, page = 1, limit = 10) => {
         tags: tag,
         isPublic: true
     })
-        .populate([
-            { path: 'author', select: 'username firstName lastName profilePicture' },
-            { path: 'comments.user', select: 'username firstName lastName profilePicture' },
-            { path: 'likes.user', select: 'username firstName lastName profilePicture' },
-            { path: 'shares.user', select: 'username firstName lastName profilePicture' }
-        ])
+        .populate(getPostPopulationConfig())
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limit);
@@ -421,13 +496,7 @@ const uploadMedia = async (postId, mediaFiles) => {
     }
 
     await post.save();
-    return await Post.findById(post._id)
-        .populate([
-            { path: 'author', select: 'username firstName lastName profilePicture' },
-            { path: 'comments.user', select: 'username firstName lastName profilePicture' },
-            { path: 'likes.user', select: 'username firstName lastName profilePicture' },
-            { path: 'shares.user', select: 'username firstName lastName profilePicture' }
-        ])
+    return await getPopulatedPost(post._id);
 };
 
 
@@ -535,4 +604,6 @@ module.exports = {
     uploadMedia,
     deleteMediaFromCloudinary,
     deleteMediaFromCloudinaryByUrl,
+    addCommentReply,
+    deleteCommentReply
 };
