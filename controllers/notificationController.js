@@ -212,12 +212,30 @@ const removeFCMToken = async (req, res) => {
     }
 };
 
-/**
- * Update notification preferences
- */
-/**
- * Get notification statistics
- */
+const checkFCMToken = async (req, res) => {
+    try {
+        const { token } = req.body;
+        const userId = req.user.userId;
+
+        if (!token) {
+            return ResponseHandler.badRequest(res, 'FCM token is required');
+        }
+
+        const result = await notificationService.checkFCMToken(userId, token);
+
+        if (!result) return ResponseHandler.notFound(res, 'FCM token not found');
+
+        return ResponseHandler.success(res, {
+            message: 'FCM token checked successfully'
+        });
+
+    } catch (error) {
+        console.error('Remove FCM token error:', error);
+        return ResponseHandler.internalError(res, 'Failed to remove FCM token');
+    }
+};
+
+
 const getNotificationStats = async (req, res) => {
     try {
         const userId = req.user.userId;
@@ -295,5 +313,6 @@ module.exports = {
     clearAllNotifications,
     addFCMToken,
     removeFCMToken,
-    getNotificationStats
+    getNotificationStats,
+    checkFCMToken
 };

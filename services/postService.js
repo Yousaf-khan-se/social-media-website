@@ -142,6 +142,7 @@ const addComment = async (postId, commentData) => {
         if (post.author.toString() !== commentData.user.toString()) {
             const notificationService = require('./notificationService');
             // Non-blocking notification
+
             notificationService.sendPostNotification(
                 postId,
                 commentData.user,
@@ -194,9 +195,10 @@ const addCommentReply = async (postId, commentId, commentReply) => {
                     {
                         commentContent: commentReply.content,
                         isReply: true,
-                        parentCommentId: commentId
+                        parentCommentId: commentId,
+                        isCommentReply: true
                     }
-                ).catch(err => console.error('Reply notification to post author error:', err));
+                ).catch(err => console.error('Comment Reply notification to post author error:', err));
             }
 
             // Notify original comment author if different from both reply author and post author

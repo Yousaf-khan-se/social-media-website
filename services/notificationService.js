@@ -3,29 +3,24 @@ const Notification = require('../models/Notification');
 const User = require('../models/User');
 const Settings = require('../models/Settings');
 
-/**
- * Send push notification using Firebase Cloud Messaging
- * @param {string} userId - Recipient user ID
- * @param {Object} notification - Notification data
- * @param {string} notification.title - Notification title
- * @param {string} notification.body - Notification body
- * @param {Object} notification.data - Additional data payload
- * @param {string} notification.type - Notification type
- * @param {string} notification.senderId - Sender user ID
- */
 const sendPushNotification = async (userId, notification) => {
     try {
         // Get user's FCM tokens and notification settings
         const user = await User.findById(userId).select('fcmTokens');
-        if (!user || !user.fcmTokens || user.fcmTokens.length === 0) {
-            return null;
+        if (!user) {
+            throw new Error('User not found');
+        }
+
+        if (!user.fcmTokens || user.fcmTokens.length === 0) {
+            throw new Error('FCM tokens not found');
         }
 
         // Get user's notification settings
         const settings = await Settings.findOne({ user: userId }).select('notifications');
         if (!settings) {
-            return null;
+            throw new Error('User settings not found');
         }
+
 
         // Check if user has enabled this type of notification
         const notificationType = notification.type;
@@ -37,6 +32,15 @@ const sendPushNotification = async (userId, notification) => {
 
         // Prepare FCM message
         const tokens = user.fcmTokens.map(tokenObj => tokenObj.token);
+        // Convert all data values to strings (FCM requirement)
+        const stringifiedData = {};
+        if (notification.data) {
+            Object.keys(notification.data).forEach(key => {
+                const value = notification.data[key];
+                stringifiedData[key] = value !== null && value !== undefined ? String(value) : '';
+            });
+        }
+
         const fcmMessage = {
             notification: {
                 title: notification.title,
@@ -44,29 +48,10 @@ const sendPushNotification = async (userId, notification) => {
             },
             data: {
                 type: notification.type,
-                ...notification.data
+                ...stringifiedData
             },
             tokens: tokens
         };
-
-        // // Add platform-specific options
-        // fcmMessage.android = {
-        //     notification: {
-        //         icon: 'ic_notification',
-        //         color: '#1976D2',
-        //         sound: 'default',
-        //         click_action: 'FLUTTER_NOTIFICATION_CLICK'
-        //     }
-        // };
-
-        // fcmMessage.apns = {
-        //     payload: {
-        //         aps: {
-        //             badge: await getUnreadNotificationCount(userId),
-        //             sound: 'default'
-        //         }
-        //     }
-        // };
 
         fcmMessage.webpush = {
             notification: {
@@ -76,34 +61,12 @@ const sendPushNotification = async (userId, notification) => {
             }
         };
 
-        // Send notification via FCM - Use sendEachForMulticast or sendToMultipleTokens based on SDK version
+        // Send notification via FCM
         let response;
         try {
-            // Try the newer method first
-            if (admin.messaging().sendEachForMulticast) {
-                response = await admin.messaging().sendEachForMulticast(fcmMessage);
-            }
-            else {
-                // Fallback to sending individual messages
-                const promises = tokens.map(token => {
-                    const message = {
-                        ...fcmMessage,
-                        token: token
-                    };
-                    delete message.tokens;
-                    return admin.messaging().send(message).catch(err => ({ error: err }));
-                });
-
-                const results = await Promise.allSettled(promises);
-                response = {
-                    successCount: results.filter(r => r.status === 'fulfilled' && !r.value.error).length,
-                    failureCount: results.filter(r => r.status === 'rejected' || r.value.error).length,
-                    responses: results.map(r => ({
-                        success: r.status === 'fulfilled' && !r.value.error,
-                        messageId: r.status === 'fulfilled' ? r.value : null,
-                        error: r.status === 'rejected' ? r.reason : r.value.error
-                    }))
-                };
+            response = await admin.messaging().sendEachForMulticast(fcmMessage);
+            if (response.failureCount > 0) {
+                throw new Error('Something went wrong on firebase while sending notification. response: ' + JSON.stringify(response.responses));
             }
         } catch (error) {
             console.error('FCM send error:', error);
@@ -113,6 +76,9 @@ const sendPushNotification = async (userId, notification) => {
                 responses: tokens.map(() => ({ success: false, error: error.message }))
             };
         }
+
+        console.log('send push notification:', fcmMessage, '  with reponse:', response.responses);
+
 
         // Save notification to database
         const notificationDoc = new Notification({
@@ -179,54 +145,35 @@ const sendPushNotification = async (userId, notification) => {
     }
 };
 
-/**
- * Create and save a notification to the database with optional push notification
- * @param {Object} notificationData - Notification data
- * @param {string} notificationData.recipient - Recipient user ID
- * @param {string} notificationData.sender - Sender user ID
- * @param {string} notificationData.type - Notification type
- * @param {string} notificationData.title - Notification title
- * @param {string} notificationData.body - Notification body
- * @param {Object} notificationData.data - Additional data payload
- * @param {boolean} sendPush - Whether to send push notification (default: true)
- */
 const createNotification = async (notificationData, sendPush = true) => {
     try {
-        // Create notification document
-        const notificationDoc = new Notification({
-            recipient: notificationData.recipient,
-            sender: notificationData.sender,
+        if (!sendPush) {
+            const notificationDoc = new Notification({
+                recipient: notificationData.recipient,
+                sender: notificationData.sender,
+                type: notificationData.type,
+                title: notificationData.title,
+                body: notificationData.body,
+                data: notificationData.data || {},
+                isDelivered: false
+            });
+            await notificationDoc.save();
+            return notificationDoc;
+        }
+
+        return await sendPushNotification(notificationData.recipient, {
+            senderId: notificationData.sender,
             type: notificationData.type,
             title: notificationData.title,
             body: notificationData.body,
             data: notificationData.data || {}
         });
-
-        // Save to database
-        await notificationDoc.save();
-
-        // Send push notification if requested
-        if (sendPush) {
-            await sendPushNotification(notificationData.recipient, {
-                senderId: notificationData.sender,
-                type: notificationData.type,
-                title: notificationData.title,
-                body: notificationData.body,
-                data: notificationData.data || {}
-            });
-        }
-
-        return notificationDoc;
-
     } catch (error) {
         console.error('Error creating notification:', error);
         throw error;
     }
 };
 
-/**
- * Send notification for post interactions (like, comment, share)
- */
 const sendPostNotification = async (postId, senderId, recipientId, type, additionalData = {}) => {
     try {
         // Don't send notification to yourself
@@ -237,7 +184,16 @@ const sendPostNotification = async (postId, senderId, recipientId, type, additio
             require('../models/Post').findById(postId).select('content author')
         ]);
 
-        if (!sender || !post || post.author.toString() !== recipientId) return null;
+        if (!sender || !post) return null;
+
+        // For replies, allow notifications to comment authors or post authors
+        // For regular comments, only notify post authors
+        const isReply = additionalData.isReply;
+        const isPostAuthor = post.author.toString() === recipientId;
+
+        if (!isReply && !isPostAuthor) {
+            return null; // Regular comments can only go to post author
+        }
 
         let title, body;
         const senderName = `${sender.firstName} ${sender.lastName}`;
@@ -250,8 +206,15 @@ const sendPostNotification = async (postId, senderId, recipientId, type, additio
                 body = `${senderName} liked your post: "${postPreview}"`;
                 break;
             case 'comment':
-                title = 'New Comment';
-                body = `${senderName} commented on your post: "${postPreview}"`;
+                if (isReply) {
+                    title = 'New Reply to your comment at a post';
+                    body = isPostAuthor
+                        ? `${senderName} replied to a comment on your post: "${postPreview}"`
+                        : `${senderName} replied to your comment: "${postPreview}"`;
+                } else {
+                    title = 'New Comment';
+                    body = `${senderName} commented on your post: "${postPreview}"`;
+                }
                 break;
             case 'share':
                 title = 'Post Shared';
@@ -281,9 +244,6 @@ const sendPostNotification = async (postId, senderId, recipientId, type, additio
     }
 };
 
-/**
- * Send notification for new messages
- */
 const sendMessageNotification = async (chatRoomId, senderId, messageContent, messageType = 'text') => {
     try {
         const [sender, chatRoom] = await Promise.all([
@@ -371,9 +331,6 @@ const sendMessageNotification = async (chatRoomId, senderId, messageContent, mes
     }
 };
 
-/**
- * Send notification for new chat creation
- */
 const sendChatCreatedNotification = async (chatRoomId, creatorId) => {
     try {
         const [creator, chatRoom] = await Promise.all([
@@ -433,9 +390,6 @@ const sendChatCreatedNotification = async (chatRoomId, creatorId) => {
     }
 };
 
-/**
- * Send notification for follow events
- */
 const sendFollowNotification = async (followerId, followedId) => {
     try {
         if (followerId === followedId) return null;
@@ -463,9 +417,6 @@ const sendFollowNotification = async (followerId, followedId) => {
     }
 };
 
-/**
- * Get notification settings key based on type
- */
 const getNotificationKey = (type) => {
     const keyMap = {
         'like': 'likes',
@@ -481,9 +432,6 @@ const getNotificationKey = (type) => {
     return keyMap[type];
 };
 
-/**
- * Get unread notification count for badge
- */
 const getUnreadNotificationCount = async (userId) => {
     try {
         return await Notification.countDocuments({
@@ -496,9 +444,6 @@ const getUnreadNotificationCount = async (userId) => {
     }
 };
 
-/**
- * Remove invalid/expired FCM tokens
- */
 const removeInvalidTokens = async (userId, invalidTokens) => {
     try {
         await User.updateOne(
@@ -510,9 +455,6 @@ const removeInvalidTokens = async (userId, invalidTokens) => {
     }
 };
 
-/**
- * Add FCM token for a user
- */
 const addFCMToken = async (userId, token, device = 'web') => {
     try {
         const user = await User.findById(userId);
@@ -542,9 +484,6 @@ const addFCMToken = async (userId, token, device = 'web') => {
     }
 };
 
-/**
- * Remove FCM token for a user
- */
 const removeFCMToken = async (userId, token) => {
     try {
         await User.updateOne(
@@ -558,9 +497,16 @@ const removeFCMToken = async (userId, token) => {
     }
 };
 
-/**
- * Update user's online status with proper timeout handling
- */
+const checkFCMToken = async (userId, token) => {
+    try {
+        const user = await User.findOne({ _id: userId, 'fcmTokens.token': token });
+        return !!user;
+    } catch (error) {
+        console.error('Error checking FCM token:', error);
+        return false;
+    }
+}
+
 const updateOnlineStatus = async (userId, isOnline) => {
     try {
         const updateData = {
@@ -585,5 +531,6 @@ module.exports = {
     addFCMToken,
     removeFCMToken,
     updateOnlineStatus,
-    getUnreadNotificationCount
+    getUnreadNotificationCount,
+    checkFCMToken
 };

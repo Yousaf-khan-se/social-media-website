@@ -66,6 +66,15 @@ router.delete('/fcm-token',
     notificationController.removeFCMToken
 );
 
+// Check FCM token
+router.get('/fcm-token/check',
+    [
+        body('token').notEmpty().withMessage('FCM token is required')
+    ],
+    handleValidationErrors,
+    notificationController.checkFCMToken
+);
+
 // Delete specific notification
 router.delete('/:notificationId',
     [
