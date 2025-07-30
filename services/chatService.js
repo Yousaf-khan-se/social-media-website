@@ -66,7 +66,7 @@ const getUserChats = async (userId) => {
         const chats = await ChatRoom.find({
             participants: userId
         })
-            .populate('participants', 'username firstName lastName profilePicture')
+            .populate('participants', 'username firstName lastName profilePicture isOnline')
             .populate({
                 path: 'lastMessage',
                 populate: {

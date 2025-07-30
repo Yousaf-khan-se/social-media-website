@@ -35,10 +35,7 @@ module.exports = function registerChatSocket(io) {
             socket.to(roomId).emit('userOnline', {
                 user: {
                     id: socket.user.userId,
-                    username: socket.user.username,
-                    firstName: socket.user.firstName,
-                    lastName: socket.user.lastName,
-                    profilePicture: socket.user.profilePicture
+                    isOnline: true
                 }
             });
         });
@@ -232,10 +229,7 @@ module.exports = function registerChatSocket(io) {
                 socket.to(roomId).emit('userOffline', {
                     user: {
                         id: socket.user.userId,
-                        username: socket.user.username,
-                        firstName: socket.user.firstName,
-                        lastName: socket.user.lastName,
-                        profilePicture: socket.user.profilePicture
+                        isOnline: false
                     }
                 });
             });
