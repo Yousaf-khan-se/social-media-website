@@ -160,10 +160,6 @@ module.exports = function registerChatSocket(io) {
             socket.to(roomId).emit('userTyping', {
                 user: {
                     id: socket.user.userId,
-                    username: socket.user.username,
-                    firstName: socket.user.firstName,
-                    lastName: socket.user.lastName,
-                    profilePicture: socket.user.profilePicture
                 },
                 isTyping,
                 roomId: roomId
