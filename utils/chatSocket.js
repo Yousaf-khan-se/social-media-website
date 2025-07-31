@@ -165,7 +165,8 @@ module.exports = function registerChatSocket(io) {
                     lastName: socket.user.lastName,
                     profilePicture: socket.user.profilePicture
                 },
-                isTyping
+                isTyping,
+                roomId: roomId
             });
         });
 
