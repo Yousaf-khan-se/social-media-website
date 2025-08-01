@@ -85,7 +85,39 @@ const updatePost = async (postId, updateData) => {
 
 // Delete post
 const deletePost = async (postId) => {
-    return await Post.findByIdAndDelete(postId);
+    try {
+        const post = await Post.findById(postId);
+        if (!post) {
+            throw new Error('Post not found');
+        }
+
+        // Delete all media files from Cloudinary if they exist
+        if (post.media && post.media.length > 0) {
+            const mediaDeletePromises = post.media.map(async (media) => {
+                try {
+                    if (media.public_id) {
+                        console.log(`Deleting media from Cloudinary: ${media.public_id}`);
+                        await deleteMediaFromCloudinary(media.public_id, media.resource_type || 'image');
+                        console.log(`Successfully deleted media: ${media.public_id}`);
+                    }
+                } catch (mediaError) {
+                    console.error(`Error deleting media ${media.public_id} from Cloudinary:`, mediaError);
+                    // Continue with deletion even if some media fails to delete
+                }
+            });
+
+            // Wait for all media deletion attempts to complete
+            await Promise.allSettled(mediaDeletePromises);
+        }
+
+        // Delete the post from database
+        const deletedPost = await Post.findByIdAndDelete(postId);
+
+        return deletedPost;
+    } catch (error) {
+        console.error('Error deleting post:', error);
+        throw error;
+    }
 };
 
 // Like/Unlike post

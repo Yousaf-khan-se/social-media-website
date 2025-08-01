@@ -71,6 +71,10 @@ connectDB()
 // MongoDB connection event handlers
 mongoose.connection.on('connected', () => {
     console.log('✅ Mongoose connected to MongoDB');
+
+    // Initialize user cleanup scheduler after database connection
+    const { scheduleUserCleanup } = require('./services/authService');
+    scheduleUserCleanup();
 });
 
 mongoose.connection.on('error', (err) => {

@@ -57,10 +57,6 @@ const userSchema = new mongoose.Schema({
         type: Boolean,
         default: false
     },
-    isActive: {
-        type: Boolean,
-        default: true
-    },
     lastLogin: {
         type: Date,
         default: null
@@ -90,6 +86,10 @@ const userSchema = new mongoose.Schema({
     lastSeen: {
         type: Date,
         default: Date.now
+    },
+    deleted: {
+        type: Boolean,
+        default: false
     }
 }, {
     timestamps: true,

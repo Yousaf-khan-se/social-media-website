@@ -88,6 +88,17 @@ const logout = async (req, res) => {
     }
 };
 
+const deleteAccount = async (req, res) => {
+    try {
+        const result = await authService.deleteUserAccount(req.user.userId);
+        return ResponseHandler.success(res, result);
+
+    } catch (error) {
+        console.error('Delete account error:', error);
+        return ResponseHandler.internalError(res, 'Failed to delete account');
+    }
+};
+
 // Refresh JWT token
 const refreshToken = async (req, res) => {
     try {
@@ -150,6 +161,17 @@ const changePassword = async (req, res) => {
     }
 };
 
+// Admin endpoint to manually trigger cleanup of deleted users
+const cleanupDeletedUsers = async (req, res) => {
+    try {
+        const result = await authService.cleanupDeletedUsers();
+        return ResponseHandler.success(res, result);
+    } catch (error) {
+        console.error('Manual cleanup error:', error);
+        return ResponseHandler.internalError(res, 'Failed to cleanup deleted users');
+    }
+};
+
 module.exports = {
     register,
     login,
@@ -158,5 +180,7 @@ module.exports = {
     refreshToken,
     forgotPassword,
     resetPassword,
-    changePassword
+    changePassword,
+    deleteAccount,
+    cleanupDeletedUsers
 };

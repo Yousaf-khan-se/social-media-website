@@ -167,7 +167,7 @@ const getChatById = async (req, res) => {
         }
 
         // Get messages with pagination
-        const messagesData = await chatService.getChatMessages(roomId, parseInt(page), parseInt(limit));
+        const messagesData = await chatService.getChatMessages(roomId, parseInt(page), parseInt(limit), userId);
 
         return ResponseHandler.success(res, {
             chat: chatRoom,

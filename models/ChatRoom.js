@@ -13,7 +13,13 @@ const chatRoomSchema = new mongoose.Schema({
     participants: [{
         type: mongoose.Schema.Types.ObjectId,
         ref: 'User',
-        required: true
+        required: true,
+        unique: true
+    }],
+    deletedFor: [{
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User',
+        unique: true
     }],
     lastMessage: {
         type: mongoose.Schema.Types.ObjectId,

@@ -64,19 +64,30 @@ const createChatRoom = async (participants, isGroup = false, name = '', creatorI
 const getUserChats = async (userId) => {
     try {
         const chats = await ChatRoom.find({
-            participants: userId
+            participants: userId,
+            deletedFor: { $ne: userId }
         })
-            .populate('participants', 'username firstName lastName profilePicture isOnline')
+            .populate({
+                path: 'participants',
+                select: 'username firstName lastName profilePicture isOnline deleted',
+                match: { deleted: { $ne: true } } // Only populate non-deleted users
+            })
             .populate({
                 path: 'lastMessage',
                 populate: {
                     path: 'sender',
-                    select: 'username firstName lastName profilePicture'
+                    select: 'username firstName lastName profilePicture deleted',
+                    match: { deleted: { $ne: true } } // Only populate non-deleted senders
                 }
             })
             .sort({ updatedAt: -1 });
 
-        return chats;
+        // Filter out chats where all participants are deleted
+        const validChats = chats.filter(chat =>
+            chat.participants && chat.participants.length > 0
+        );
+
+        return validChats;
     } catch (error) {
         console.error('Error fetching user chats:', error);
         throw error;
@@ -84,22 +95,55 @@ const getUserChats = async (userId) => {
 };
 
 // Get chat messages with pagination
-const getChatMessages = async (roomId, page = 1, limit = 50) => {
+const getChatMessages = async (roomId, page = 1, limit = 50, userId) => {
     try {
         const skip = (page - 1) * limit;
 
-        const messages = await Message.find({ chatRoom: roomId })
-            .populate('sender', 'username firstName lastName profilePicture')
-            .populate('seenBy', 'username firstName lastName profilePicture')
+        const messages = await Message.find(
+            {
+                chatRoom: roomId,
+                deletedFor: { $ne: userId }
+            }
+        )
+            .populate({
+                path: 'sender',
+                select: 'username firstName lastName profilePicture deleted',
+                match: { deleted: { $ne: true } } // Only populate non-deleted senders
+            })
+            .populate({
+                path: 'seenBy',
+                select: 'username firstName lastName profilePicture deleted',
+                match: { deleted: { $ne: true } } // Only populate non-deleted users
+            })
             .sort({ createdAt: -1 })
             .skip(skip)
             .limit(limit);
 
-        const totalMessages = await Message.countDocuments({ chatRoom: roomId });
+        // Filter out messages from deleted senders (but keep the message with anonymous sender info)
+        const validMessages = messages.map(message => {
+            if (!message.sender) {
+                // If sender is deleted, replace with anonymous info
+                return {
+                    ...message.toObject(),
+                    sender: {
+                        username: 'deleted_user',
+                        firstName: 'Deleted',
+                        lastName: 'User',
+                        profilePicture: ''
+                    }
+                };
+            }
+            return message;
+        });
+
+        const totalMessages = await Message.countDocuments({
+            chatRoom: roomId,
+            deletedFor: { $ne: userId }
+        });
         const totalPages = Math.ceil(totalMessages / limit);
 
         return {
-            messages: messages.reverse(), // Reverse to show oldest first
+            messages: validMessages.reverse(), // Reverse to show oldest first
             pagination: {
                 currentPage: page,
                 totalPages,
@@ -113,7 +157,7 @@ const getChatMessages = async (roomId, page = 1, limit = 50) => {
     }
 };
 
-// Delete a chat room
+// Delete a chat room (soft delete implementation)
 const deleteChatRoom = async (roomId, userId) => {
     try {
         const chatRoom = await ChatRoom.findById(roomId);
@@ -126,77 +170,174 @@ const deleteChatRoom = async (roomId, userId) => {
             throw new Error('Not authorized to delete this chat');
         }
 
-        // Get all messages with media before deleting them
-        const messagesWithMedia = await Message.find({
-            chatRoom: roomId,
-            messageType: { $ne: 'text' },
-            content: { $exists: true, $ne: '' }
-        });
+        // Check if user already deleted this chat
+        if (chatRoom.deletedFor && chatRoom.deletedFor.includes(userId)) {
+            return { success: true, message: 'Chat already deleted for this user' };
+        }
 
-        // Delete media from Cloudinary for all messages with media
-        const mediaDeletePromises = messagesWithMedia.map(async (message) => {
-            try {
-                await deleteMediaFromCloudinaryByUrl(message.content);
-            } catch (mediaError) {
-                console.error(`Error deleting media for message ${message._id}:`, mediaError);
-                // Continue with deletion even if some media fails to delete
-            }
-        });
+        // Add user to deletedFor array
+        if (!chatRoom.deletedFor) {
+            chatRoom.deletedFor = [];
+        }
+        chatRoom.deletedFor.push(userId);
 
-        // Wait for all media deletion attempts to complete
-        await Promise.allSettled(mediaDeletePromises);
+        // Check if all participants have deleted the chat
+        const allParticipantsDeleted = chatRoom.participants.every(participantId =>
+            chatRoom.deletedFor.some(deletedId => deletedId.toString() === participantId.toString())
+        );
 
-        // Delete all messages in the chat room
-        await Message.deleteMany({ chatRoom: roomId });
+        if (allParticipantsDeleted) {
+            // Complete deletion: delete all media and messages, then delete chat room
+            console.log(`All participants deleted chat ${roomId}, performing complete deletion`);
 
-        // Delete the chat room
-        await ChatRoom.findByIdAndDelete(roomId);
+            // Get all messages with media before deleting them
+            const messagesWithMedia = await Message.find({
+                chatRoom: roomId,
+                messageType: { $ne: 'text' },
+                content: { $exists: true, $ne: '' }
+            });
 
-        return { success: true, message: 'Chat deleted successfully' };
+            // Delete media from Cloudinary for all messages with media
+            const mediaDeletePromises = messagesWithMedia.map(async (message) => {
+                try {
+                    await deleteMediaFromCloudinaryByUrl(message.content);
+                } catch (mediaError) {
+                    console.error(`Error deleting media for message ${message._id}:`, mediaError);
+                    // Continue with deletion even if some media fails to delete
+                }
+            });
+
+            // Wait for all media deletion attempts to complete
+            await Promise.allSettled(mediaDeletePromises);
+
+            // Delete all messages in the chat room
+            await Message.deleteMany({ chatRoom: roomId });
+
+            // Delete the chat room completely
+            await ChatRoom.findByIdAndDelete(roomId);
+
+            return { success: true, message: 'Chat deleted completely' };
+        } else {
+            // Soft delete: just save the updated deletedFor array
+            await chatRoom.save();
+            return { success: true, message: 'Chat deleted for user' };
+        }
     } catch (error) {
         console.error('Error deleting chat room:', error);
         throw error;
     }
 };
 
-// Delete a message
+// Delete a message (soft delete implementation)
 const deleteMessage = async (messageId, userId) => {
     try {
-        const message = await Message.findById(messageId);
+        const message = await Message.findById(messageId).populate('chatRoom');
         if (!message) {
             throw new Error('Message not found');
         }
 
-        // Check if user is the sender
-        if (message.sender.toString() !== userId) {
+        const chatRoom = message.chatRoom;
+        if (!chatRoom) {
+            throw new Error('Chat room not found');
+        }
+
+        // Check if user is a participant in the chat
+        if (!chatRoom.participants.includes(userId)) {
             throw new Error('Not authorized to delete this message');
         }
 
-        // If message has media, delete from cloudinary
-        if (message.messageType !== 'text' && message.content && message.content.trim() !== '') {
-            try {
-                console.log(`Deleting media for message ${messageId}: ${message.content}`);
-                await deleteMediaFromCloudinaryByUrl(message.content);
-                console.log(`Successfully deleted media for message ${messageId}`);
-            } catch (mediaError) {
-                console.error(`Error deleting media from cloudinary for message ${messageId}:`, mediaError);
-                // Continue with message deletion even if media deletion fails
+        // Check if user already deleted this message
+        if (message.deletedFor && message.deletedFor.includes(userId)) {
+            const isSender = message.sender.toString() === userId;
+            if (isSender && message.content !== 'owner deleted their account.') {
+                const owner = await User.findById(message.sender).select('deleted');
+                if (owner && owner.deleted) {
+                    message.content = 'owner deleted their account.';
+                    message.messageType = 'text';
+                    message.caption = ''; // Clear caption if any
+                }
             }
+            throw new Error('Message already been deleted for this user');
         }
 
-        await Message.findByIdAndDelete(messageId);
+        const isSender = message.sender.toString() === userId;
 
-        // Update last message in chat room if this was the last message
-        const chatRoom = await ChatRoom.findById(message.chatRoom);
-        if (chatRoom && chatRoom.lastMessage && chatRoom.lastMessage.toString() === messageId) {
-            const lastMessage = await Message.findOne({ chatRoom: message.chatRoom })
-                .sort({ createdAt: -1 });
+        if (isSender) {
+            // If sender is deleting: change content and delete media
+            console.log(`Sender deleting message ${messageId}`);
 
-            chatRoom.lastMessage = lastMessage ? lastMessage._id : null;
-            await chatRoom.save();
+            // If message has media, delete from cloudinary
+            if (message.messageType !== 'text' && message.content && message.content.trim() !== '') {
+                try {
+                    console.log(`Deleting media for message ${messageId}: ${message.content}`);
+                    await deleteMediaFromCloudinaryByUrl(message.content);
+                    console.log(`Successfully deleted media for message ${messageId}`);
+                } catch (mediaError) {
+                    console.error(`Error deleting media from cloudinary for message ${messageId}:`, mediaError);
+                    // Continue with message deletion even if media deletion fails
+                }
+            }
+
+            // Change message content and type
+            message.content = 'deleted by owner';
+            message.messageType = 'text';
+            message.caption = ''; // Clear caption if any
         }
 
-        return { success: true, message: 'Message deleted successfully' };
+        // Add user to deletedFor array
+        if (!message.deletedFor) {
+            message.deletedFor = [];
+        }
+        message.deletedFor.push(userId);
+
+        // Check if all participants have deleted the message
+        const allParticipantsDeleted = chatRoom.participants.every(participantId =>
+            message.deletedFor.some(deletedId => deletedId.toString() === participantId.toString())
+        );
+
+        if (allParticipantsDeleted) {
+            // Complete deletion: delete the message completely
+            console.log(`All participants deleted message ${messageId}, performing complete deletion`);
+
+            // If message still has media (shouldn't happen but safety check)
+            if (message.messageType !== 'text' && message.content && message.content.trim() !== '' && message.content !== 'deleted by owner') {
+                try {
+                    await deleteMediaFromCloudinaryByUrl(message.content);
+                } catch (mediaError) {
+                    console.error(`Error deleting remaining media for message ${messageId}:`, mediaError);
+                }
+            }
+
+            await Message.findByIdAndDelete(messageId);
+
+            // Update last message in chat room if this was the last message
+            if (chatRoom.lastMessage && chatRoom.lastMessage.toString() === messageId) {
+                const lastMessage = await Message.findOne({ chatRoom: chatRoom._id })
+                    .sort({ createdAt: -1 });
+
+                chatRoom.lastMessage = lastMessage ? lastMessage._id : null;
+                await chatRoom.save();
+            }
+
+            return { success: true, message: 'Message deleted completely' };
+        } else {
+            // Soft delete: save the updated message
+            await message.save();
+
+            // Update last message in chat room if this was the last message
+            if (chatRoom.lastMessage && chatRoom.lastMessage.toString() === messageId) {
+                // If this was the last message and sender deleted it, update chat room's lastMessage
+                if (isSender) {
+                    const lastMessage = await Message.findOne({ chatRoom: chatRoom._id })
+                        .sort({ createdAt: -1 });
+
+                    chatRoom.lastMessage = lastMessage ? lastMessage._id : null;
+                    await chatRoom.save();
+                }
+            }
+
+            return { success: true, message: isSender ? 'Message deleted by sender' : 'Message deleted for user' };
+        }
     } catch (error) {
         console.error('Error deleting message:', error);
         throw error;

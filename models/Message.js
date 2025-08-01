@@ -25,6 +25,11 @@ const messageSchema = new mongoose.Schema({
         trim: true,
         default: ''
     },
+    deletedFor: [{
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User',
+        unique: true
+    }],
     seenBy: [{
         type: mongoose.Schema.Types.ObjectId,
         ref: 'User'

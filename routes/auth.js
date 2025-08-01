@@ -12,7 +12,11 @@ router.post('/reset-password', authController.resetPassword);
 
 // Protected routes
 router.get('/me', authenticateToken, authController.getProfile);
+router.delete('/account', authenticateToken, authController.deleteAccount);
 router.post('/logout', authenticateToken, authController.logout);
 router.post('/change-password', authenticateToken, authController.changePassword);
+
+// Admin routes (you might want to add admin authentication middleware here)
+router.post('/admin/cleanup-deleted-users', authenticateToken, authController.cleanupDeletedUsers);
 
 module.exports = router;
