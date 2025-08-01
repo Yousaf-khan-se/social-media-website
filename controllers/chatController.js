@@ -196,7 +196,8 @@ const deleteChat = async (req, res) => {
         const result = await chatService.deleteChatRoom(roomId, userId);
 
         return ResponseHandler.success(res, {
-            message: SUCCESS_MESSAGES.CHAT_DELETED
+            message: SUCCESS_MESSAGES.CHAT_DELETED,
+            success: result
         });
 
     } catch (error) {

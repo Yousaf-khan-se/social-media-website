@@ -126,6 +126,26 @@ const deleteChatRoom = async (roomId, userId) => {
             throw new Error('Not authorized to delete this chat');
         }
 
+        // Get all messages with media before deleting them
+        const messagesWithMedia = await Message.find({
+            chatRoom: roomId,
+            messageType: { $ne: 'text' },
+            content: { $exists: true, $ne: '' }
+        });
+
+        // Delete media from Cloudinary for all messages with media
+        const mediaDeletePromises = messagesWithMedia.map(async (message) => {
+            try {
+                await deleteMediaFromCloudinaryByUrl(message.content);
+            } catch (mediaError) {
+                console.error(`Error deleting media for message ${message._id}:`, mediaError);
+                // Continue with deletion even if some media fails to delete
+            }
+        });
+
+        // Wait for all media deletion attempts to complete
+        await Promise.allSettled(mediaDeletePromises);
+
         // Delete all messages in the chat room
         await Message.deleteMany({ chatRoom: roomId });
 
@@ -153,11 +173,13 @@ const deleteMessage = async (messageId, userId) => {
         }
 
         // If message has media, delete from cloudinary
-        if (message.messageType !== 'text' && message.content) {
+        if (message.messageType !== 'text' && message.content && message.content.trim() !== '') {
             try {
+                console.log(`Deleting media for message ${messageId}: ${message.content}`);
                 await deleteMediaFromCloudinaryByUrl(message.content);
+                console.log(`Successfully deleted media for message ${messageId}`);
             } catch (mediaError) {
-                console.error('Error deleting media from cloudinary:', mediaError);
+                console.error(`Error deleting media from cloudinary for message ${messageId}:`, mediaError);
                 // Continue with message deletion even if media deletion fails
             }
         }

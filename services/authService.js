@@ -42,12 +42,13 @@ const registerUser = async (userData) => {
         { path: 'followers', select: 'username firstName lastName profilePicture isVerified' },
         { path: 'following', select: 'username firstName lastName profilePicture isVerified' }
     ]);
+
     // Send welcome email (non-blocking)
     sendWelcomeEmail(user.email, user.firstName);
 
     return {
         message: SUCCESS_MESSAGES.USER_REGISTERED,
-        user: userService.getUserProfileData(user)
+        // user: userService.getUserProfileData(user)
     };
 };
 
