@@ -5,7 +5,7 @@ const fs = require('fs');
 
 const ResponseHandler = require('../utils/responseHandler');
 const { ERROR_MESSAGES, SUCCESS_MESSAGES } = require('../constants/messages');
-const { findUserById } = require('../services/userService');
+const { findUserById, getUserFollowerIds } = require('../services/userService');
 
 const storage = multer.diskStorage({
     destination: function (req, file, cb) {
@@ -231,7 +231,7 @@ const getFeed = async (req, res) => {
 
         // For now, we'll need to get user's following list
         // This would ideally come from a user service
-        const followingIds = req.user.following || [];
+        const followingIds = await getUserFollowerIds(req.user.userId);
 
         const posts = await postService.getFeedPosts(
             followingIds,
