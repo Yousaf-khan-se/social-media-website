@@ -348,6 +348,24 @@ const getUserProfile = async (req, res) => {
     });
 }
 
+const getSuggestedUsers = async (req, res) => {
+    try {
+        const userId = req.user.userId;
+        const limit = parseInt(req.query.limit) || 10;
+
+        const suggestedUsers = await userService.getSuggestedUsers(userId, limit);
+
+        return ResponseHandler.success(res, {
+            users: suggestedUsers,
+            count: suggestedUsers.length
+        }, SUCCESS_MESSAGES.USERS_RETRIEVED);
+
+    } catch (error) {
+        console.error('Error getting suggested users:', error);
+        return ResponseHandler.error(res, ERROR_MESSAGES.GENERIC);
+    }
+};
+
 
 module.exports = {
     addAuthenticatedUserFollowers,
@@ -358,5 +376,6 @@ module.exports = {
     getUserFollowers,
     uploadProfilePicture,
     upload, // Export multer upload instance for use in routes,
-    getUserProfile
+    getUserProfile,
+    getSuggestedUsers
 };

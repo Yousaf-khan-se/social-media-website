@@ -357,6 +357,33 @@ const deleteMediaFromCloudinaryByUrl = async (url, resourceType = null) => {
     }
 }
 
+// Get suggested users for the current user
+const getSuggestedUsers = async (userId, limit = 10) => {
+    try {
+        // Get users that current user is not following and exclude the current user
+        // Also filter out soft-deleted users
+        const user = await User.findById(userId).select('following');
+        if (!user) {
+            throw new Error('User not found');
+        }
+
+        const excludeIds = [...user.following, userId]; // Exclude users already being followed and self
+
+        const suggestedUsers = await User.find({
+            _id: { $nin: excludeIds },
+            deleted: { $ne: true } // Exclude soft-deleted users
+        })
+            .select('_id username firstName lastName profilePicture followers')
+            .limit(limit)
+            .lean();
+
+        return suggestedUsers;
+    } catch (error) {
+        console.error('Error getting suggested users:', error);
+        throw error;
+    }
+}
+
 
 module.exports = {
     findExistingUser,
@@ -374,5 +401,6 @@ module.exports = {
     getUserFollowerIds,
     getUserFollowingIds,
     deleteMediaFromCloudinary,
-    uploadUserProfilePicture
+    uploadUserProfilePicture,
+    getSuggestedUsers
 };
