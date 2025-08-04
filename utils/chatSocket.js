@@ -191,13 +191,8 @@ module.exports = function registerChatSocket(io) {
                 // Emit seen status to all users in the room
                 io.to(message.chatRoom.toString()).emit('messageSeen', {
                     messageId: message._id,
-                    seenBy: message.seenBy,
                     user: {
-                        id: socket.user.userId,
-                        username: socket.user.username,
-                        firstName: socket.user.firstName,
-                        lastName: socket.user.lastName,
-                        profilePicture: socket.user.profilePicture
+                        id: socket.user.userId
                     }
                 });
 
