@@ -5,6 +5,7 @@ const { validatePagination } = require('../validators/postValidator');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
+const { getUserSettings } = require('../services/settingsService');
 
 const storage = multer.diskStorage({
     destination: function (req, file, cb) {
@@ -319,6 +320,34 @@ const getUserFollowers = async (req, res) => {
     }
 };
 
+const getUserProfile = async (req, res) => {
+    const { userId } = req.params;
+    const settings = await getUserSettings(userId);
+    let visibility = null;
+
+    let user = null;
+    if (settings.profileVisibility === 'private' && req.user.userId !== userId && !user.followers.includes(req.user.userId)) {
+        user = await userService.findUserById(userId).select('-password -email -fcmTokens -isOnline -lastSeen -profilePicture');
+        visibility = 'private';
+    }
+    else if (settings.profileVisibility === 'followers' && req.user.userId !== userId && !user.followings.includes(req.user.userId)) {
+        user = await userService.findUserById(userId).select('-password -email -fcmTokens -isOnline -lastSeen -profilePicture');
+        visibility = 'private';
+    }
+    else {
+        user = await userService.findUserById(userId);
+        visibility = 'public';
+    }
+
+    if (!user) {
+        return ResponseHandler.notFound(res, ERROR_MESSAGES.USER_NOT_FOUND);
+    }
+
+    return ResponseHandler.success(res, {
+        user, visibility
+    });
+}
+
 
 module.exports = {
     addAuthenticatedUserFollowers,
@@ -328,5 +357,6 @@ module.exports = {
     getUserFollowing,
     getUserFollowers,
     uploadProfilePicture,
-    upload // Export multer upload instance for use in routes
+    upload, // Export multer upload instance for use in routes,
+    getUserProfile
 };

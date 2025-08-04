@@ -97,7 +97,8 @@ const ERROR_MESSAGES = {
     CHAT_PERMISSION_REQUEST_NOT_FOUND: 'Chat permission request not found',
     CHAT_PERMISSION_REQUEST_ALREADY_RESPONDED: 'Chat permission request has already been responded to',
     CHAT_PERMISSION_REQUEST_FAILED: 'Failed to create chat permission request',
-    CHAT_PERMISSION_RESPONSE_FAILED: 'Failed to respond to chat permission request'
+    CHAT_PERMISSION_RESPONSE_FAILED: 'Failed to respond to chat permission request',
+    PROFILE_PRIVATE: 'This profile is private',
 };
 
 // Validation Messages
