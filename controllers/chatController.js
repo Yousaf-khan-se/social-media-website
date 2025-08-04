@@ -46,13 +46,57 @@ const upload = multer({
 // Create a new chat room
 const createChat = async (req, res) => {
     try {
-        const { participants, isGroup = false, name = '', message = '' } = req.body;
+        const { participants, isGroup = false, name = '', message = '', roomId = null } = req.body;
         const userId = req.user.userId;
-        console.log('req:', userId);
+        console.log('Create chat request:', { userId, isGroup, roomId, participantsCount: participants?.length });
 
         // Validation
         if (!participants || !Array.isArray(participants) || participants.length === 0) {
             return ResponseHandler.badRequest(res, VALIDATION_MESSAGES.PARTICIPANTS_REQUIRED);
+        }
+
+        // If roomId is provided, we're adding participants to existing group
+        if (roomId) {
+            if (!isGroup) {
+                return ResponseHandler.badRequest(res, 'Cannot add participants to one-on-one chat');
+            }
+
+            // Validate roomId exists
+            const existingRoom = await ChatRoom.findById(roomId);
+            if (!existingRoom) {
+                return ResponseHandler.notFound(res, ERROR_MESSAGES.CHAT_NOT_FOUND);
+            }
+
+            if (!existingRoom.isGroup) {
+                return ResponseHandler.badRequest(res, 'Cannot add participants to one-on-one chat');
+            }
+
+            // Check if user is authorized to add participants
+            if (!existingRoom.participants.includes(userId)) {
+                return ResponseHandler.unauthorized(res, 'Not authorized to add participants to this group');
+            }
+
+            // Validate new participants exist and check permissions for group chats
+            for (const participantId of participants) {
+                const user = await findUserById(participantId);
+                if (!user) {
+                    return ResponseHandler.badRequest(res, `User with ID ${participantId} not found`);
+                }
+
+                // Check if user can be added to group (privacy settings)
+                const canMessage = await settingsService.canUserMessage(userId, participantId);
+                if (!canMessage.canMessage) {
+                    return ResponseHandler.forbidden(res, `Cannot add user ${participantId}: ${canMessage.reason}`);
+                }
+            }
+
+            // Add participants to existing group
+            const updatedRoom = await chatService.createChatRoom(participants, isGroup, name, userId, roomId);
+
+            return ResponseHandler.success(res, {
+                chat: updatedRoom,
+                message: 'Participants added to group successfully'
+            });
         }
 
         // Add current user to participants if not already included
@@ -76,8 +120,44 @@ const createChat = async (req, res) => {
             }
         }
 
-        // For one-on-one chats, check chat permissions
-        if (!isGroup) {
+        // Check chat permissions for both one-on-one and group chats
+        if (isGroup) {
+            // For group chats, check permission with each participant
+            for (const participantId of allParticipants) {
+                if (participantId !== userId) {
+                    const permissionCheck = await chatPermissionService.checkChatPermission(userId, participantId);
+
+                    if (!permissionCheck.canCreate) {
+                        if (permissionCheck.requiresPermission) {
+                            // Create a permission request for group chat
+                            try {
+                                const permissionRequest = await chatPermissionService.createChatPermissionRequest(
+                                    userId,
+                                    participantId,
+                                    { participants: allParticipants, isGroup, name },
+                                    message || `${req.user.firstName} wants to add you to a group chat: ${name}`
+                                );
+
+                                return ResponseHandler.success(res, {
+                                    permissionRequest,
+                                    message: `Group chat permission request sent to user ${participantId}. They will be notified.`,
+                                    requiresPermission: true,
+                                    pendingParticipant: participantId
+                                });
+                            } catch (permissionError) {
+                                if (permissionError.message.includes('already pending')) {
+                                    return ResponseHandler.badRequest(res, `A chat permission request is already pending with user ${participantId}`);
+                                }
+                                throw permissionError;
+                            }
+                        } else {
+                            return ResponseHandler.forbidden(res, `Cannot create group chat: ${permissionCheck.reason} (User: ${participantId})`);
+                        }
+                    }
+                }
+            }
+        } else {
+            // For one-on-one chats, check permission with the other participant
             const otherParticipantId = allParticipants.find(id => id !== userId);
 
             const permissionCheck = await chatPermissionService.checkChatPermission(userId, otherParticipantId);
@@ -110,8 +190,8 @@ const createChat = async (req, res) => {
             }
         }
 
-        // If we reach here, either it's a group chat or permission is granted
-        const chatRoom = await chatService.createChatRoom(allParticipants, isGroup, name);
+        // If we reach here, either it's a group chat with all permissions granted or a one-on-one chat with permission granted
+        const chatRoom = await chatService.createChatRoom(allParticipants, isGroup, name, userId);
 
         return ResponseHandler.created(res, {
             chat: chatRoom,

@@ -14,8 +14,51 @@ cloudinary.config({
 });
 
 // Create a new chat room
-const createChatRoom = async (participants, isGroup = false, name = '', creatorId = null) => {
+const createChatRoom = async (participants, isGroup = false, name = '', creatorId = null, roomId = null) => {
     try {
+        // If roomId is provided, we're adding participants to existing group chat
+        if (roomId) {
+            const existingRoom = await ChatRoom.findById(roomId);
+            if (!existingRoom) {
+                throw new Error('Chat room not found');
+            }
+
+            if (!existingRoom.isGroup) {
+                throw new Error('Cannot add participants to one-on-one chat');
+            }
+
+            // Check if creator is a participant in the existing room
+            if (!existingRoom.participants.includes(creatorId)) {
+                throw new Error('Not authorized to add participants to this group');
+            }
+
+            // Add new participants to the existing room
+            const newParticipants = participants.filter(p => !existingRoom.participants.includes(p));
+            existingRoom.participants.push(...newParticipants);
+
+            // Remove any participants from deletedFor array if they're being re-added
+            if (existingRoom.deletedFor) {
+                existingRoom.deletedFor = existingRoom.deletedFor.filter(
+                    deletedId => !participants.includes(deletedId.toString())
+                );
+            }
+
+            await existingRoom.save();
+
+            const updatedRoom = await ChatRoom.findById(roomId)
+                .populate('participants', 'username firstName lastName profilePicture')
+                .populate('lastMessage');
+
+            // Send notifications for new participants
+            const notificationService = require('./notificationService');
+            newParticipants.forEach(participantId => {
+                notificationService.sendChatCreatedNotification(roomId, creatorId, participantId)
+                    .catch(err => console.error('Chat participant notification error:', err));
+            });
+
+            return updatedRoom;
+        }
+
         // For one-on-one chats, check privacy settings
         if (!isGroup && participants.length === 2) {
             const otherUserId = participants.find(id => id !== creatorId);
@@ -26,17 +69,43 @@ const createChatRoom = async (participants, isGroup = false, name = '', creatorI
                 }
             }
 
-            // Check if it's a one-on-one chat that already exists
+            // Check if it's a one-on-one chat that already exists (including soft deleted)
             const existingChat = await ChatRoom.findOne({
                 isGroup: false,
                 participants: { $all: participants, $size: 2 }
             }).populate('participants', 'username firstName lastName profilePicture');
 
             if (existingChat) {
+                // If chat exists and user has soft deleted it, remove from deletedFor
+                if (existingChat.deletedFor && existingChat.deletedFor.includes(creatorId)) {
+                    existingChat.deletedFor = existingChat.deletedFor.filter(id => id.toString() !== creatorId.toString());
+                    await existingChat.save();
+                }
                 return existingChat;
             }
         }
 
+        // For group chats, check if similar group already exists
+        if (isGroup) {
+            // For group chats, check if a group with same participants already exists
+            const existingGroupChat = await ChatRoom.findOne({
+                isGroup: true,
+                participants: { $all: participants, $size: participants.length }
+            }).populate('participants', 'username firstName lastName profilePicture');
+
+            if (existingGroupChat) {
+                // If group chat exists and user has soft deleted it, remove from deletedFor
+                if (existingGroupChat.deletedFor && existingGroupChat.deletedFor.includes(creatorId)) {
+                    existingGroupChat.deletedFor = existingGroupChat.deletedFor.filter(
+                        deletedId => deletedId.toString() !== creatorId.toString()
+                    );
+                    await existingGroupChat.save();
+                }
+                return existingGroupChat;
+            }
+        }
+
+        // Create new chat room
         const chatRoom = new ChatRoom({
             isGroup,
             name: isGroup ? name : '',
@@ -50,8 +119,22 @@ const createChatRoom = async (participants, isGroup = false, name = '', creatorI
 
         // Send notifications for chat creation
         const notificationService = require('./notificationService');
-        notificationService.sendChatCreatedNotification(chatRoom._id, creatorId || participants[0])
-            .catch(err => console.error('Chat creation notification error:', err));
+        if (isGroup) {
+            // For group chats, notify all participants except creator
+            participants.forEach(participantId => {
+                if (participantId !== creatorId) {
+                    notificationService.sendChatCreatedNotification(chatRoom._id, creatorId, participantId)
+                        .catch(err => console.error('Group chat creation notification error:', err));
+                }
+            });
+        } else {
+            // For one-on-one chats, notify the other participant
+            const otherParticipant = participants.find(id => id !== creatorId);
+            if (otherParticipant) {
+                notificationService.sendChatCreatedNotification(chatRoom._id, creatorId, otherParticipant)
+                    .catch(err => console.error('Chat creation notification error:', err));
+            }
+        }
 
         return newChatRoom;
     } catch (error) {
