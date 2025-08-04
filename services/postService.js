@@ -38,10 +38,11 @@ const getPostById = async (postId) => {
 };
 
 // Get posts by user ID
-const getPostsByUserId = async (userId, page = 1, limit = 10) => {
+const getPostsByUserId = async (userId, page = 1, limit = 10, hidePrivate = true) => {
     const skip = (page - 1) * limit;
 
-    return await Post.find({ author: userId, isPublic: true })
+    const filter = hidePrivate ? { author: userId, isPublic: true } : { author: userId }
+    return await Post.find(filter)
         .populate(getPostPopulationConfig())
         .sort({ createdAt: -1 })
         .skip(skip)

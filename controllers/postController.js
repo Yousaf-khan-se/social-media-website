@@ -46,6 +46,7 @@ const {
     validatePostId,
     validatePagination
 } = require('../validators/postValidator');
+const { getUserSettings } = require('../services/settingsService');
 
 // Create a new post
 const createPost = async (req, res) => {
@@ -165,18 +166,34 @@ const getUserPosts = async (req, res) => {
             return ResponseHandler.validationError(res, paginationValidation.errors);
         }
 
-        const posts = await postService.getPostsByUserId(
-            userId,
-            paginationValidation.page,
-            paginationValidation.limit
-        );
+        const settings = await getUserSettings(userId);
+        let visibility = null;
+        let posts = [];
+        const theyFollowed = user.followers.includes(req.user.userId);
+        const youFollowed = user.followings.includes(req.user.userId);
+
+        if (settings.profileVisibility === 'private' && req.user.userId !== userId && !theyFollowed) {
+            visibility = 'private';
+        }
+        else if (settings.profileVisibility === 'followers' && req.user.userId !== userId && !youFollowed) {
+            visibility = 'private';
+        }
+        else {
+            posts = await postService.getPostsByUserId(
+                userId,
+                paginationValidation.page,
+                paginationValidation.limit,
+                (userId !== req.user.userId || !theyFollowed) ? true : false // hide private posts
+            );
+            visibility = 'public';
+        }
 
         return ResponseHandler.success(res, {
             posts,
             pagination: {
                 page: paginationValidation.page,
                 limit: paginationValidation.limit,
-                total: posts.length
+                total: (visibility === 'public') ? posts.length : 0
             }
         });
 
