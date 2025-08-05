@@ -305,6 +305,19 @@ const deleteMessage = async (req, res) => {
 
         const result = await chatService.deleteMessage(messageId, userId);
 
+        // Emit real-time socket event to notify other users in the chat room
+        if (result.socketData) {
+            const io = req.app.get('io'); // Get Socket.IO instance
+            if (io) {
+                io.to(result.socketData.roomId).emit('messageDeleted', {
+                    messageId: messageId,
+                    deletedBy: userId,
+                    messageUpdate: result.socketData.messageUpdate,
+                    isCompletelyDeleted: result.socketData.isCompletelyDeleted
+                });
+            }
+        }
+
         return ResponseHandler.success(res, {
             message: SUCCESS_MESSAGES.MESSAGE_DELETED
         });

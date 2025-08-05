@@ -14,6 +14,9 @@ const io = new Server(app, {
     },
 });
 
+// Make Socket.IO instance accessible to the Express app
+server.set('io', io);
+
 //socket authentication middleware
 io.use(authenticateWsToken);
 

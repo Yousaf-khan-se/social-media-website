@@ -1,5 +1,6 @@
 const Message = require('../models/Message');
 const ChatRoom = require('../models/ChatRoom');
+const User = require('../models/User');
 const { ERROR_MESSAGES } = require('../constants/messages');
 const settingsService = require('./settingsService');
 const cloudinary = require('cloudinary').v2;
@@ -344,6 +345,11 @@ const deleteMessage = async (messageId, userId) => {
         }
 
         const isSender = message.sender.toString() === userId;
+        let socketData = {
+            roomId: chatRoom._id.toString(),
+            messageUpdate: null,
+            isCompletelyDeleted: false
+        };
 
         if (isSender) {
             // If sender is deleting: change content and delete media
@@ -365,6 +371,19 @@ const deleteMessage = async (messageId, userId) => {
             message.content = 'deleted by owner';
             message.messageType = 'text';
             message.caption = ''; // Clear caption if any
+
+            // Store updated message data for socket emission
+            socketData.messageUpdate = {
+                _id: message._id,
+                content: 'deleted by owner',
+                messageType: 'text',
+                caption: '',
+                sender: message.sender,
+                chatRoom: message.chatRoom._id,
+                createdAt: message.createdAt,
+                updatedAt: new Date(),
+                seenBy: message.seenBy
+            };
         }
 
         // Add user to deletedFor array
@@ -393,6 +412,9 @@ const deleteMessage = async (messageId, userId) => {
 
             await Message.findByIdAndDelete(messageId);
 
+            // Mark as completely deleted for socket emission
+            socketData.isCompletelyDeleted = true;
+
             // Update last message in chat room if this was the last message
             if (chatRoom.lastMessage && chatRoom.lastMessage.toString() === messageId) {
                 const lastMessage = await Message.findOne({ chatRoom: chatRoom._id })
@@ -402,7 +424,7 @@ const deleteMessage = async (messageId, userId) => {
                 await chatRoom.save();
             }
 
-            return { success: true, message: 'Message deleted completely' };
+            return { success: true, message: 'Message deleted completely', socketData };
         } else {
             // Soft delete: save the updated message
             await message.save();
@@ -419,7 +441,7 @@ const deleteMessage = async (messageId, userId) => {
                 }
             }
 
-            return { success: true, message: isSender ? 'Message deleted by sender' : 'Message deleted for user' };
+            return { success: true, message: isSender ? 'Message deleted by sender' : 'Message deleted for user', socketData };
         }
     } catch (error) {
         console.error('Error deleting message:', error);

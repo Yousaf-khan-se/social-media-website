@@ -202,6 +202,33 @@ module.exports = function registerChatSocket(io) {
             }
         });
 
+        // Delete message via socket (alternative to REST API)
+        socket.on('deleteMessage', async ({ messageId }) => {
+            try {
+                const chatService = require('../services/chatService');
+
+                // Use the same service method as REST API
+                const result = await chatService.deleteMessage(messageId, socket.user.userId);
+
+                // Emit to all users in the room (including sender for confirmation)
+                if (result.socketData) {
+                    io.to(result.socketData.roomId).emit('messageDeleted', {
+                        messageId: messageId,
+                        deletedBy: socket.user.userId,
+                        messageUpdate: result.socketData.messageUpdate,
+                        isCompletelyDeleted: result.socketData.isCompletelyDeleted
+                    });
+                }
+
+            } catch (error) {
+                console.error('Error deleting message via socket:', error);
+                socket.emit('error', {
+                    message: error.message || 'Failed to delete message',
+                    action: 'deleteMessage'
+                });
+            }
+        });
+
         // Handle disconnection
         socket.on('disconnect', async () => {
             console.log(`🔴 Socket disconnected: ${socket.id} - User: ${socket.user.username || socket.user.userId}`);
