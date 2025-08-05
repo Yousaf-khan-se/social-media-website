@@ -287,7 +287,7 @@ const sendMessageNotification = async (chatRoomId, senderId, messageContent, mes
 
         if (finalRecipients.length === 0) return;
 
-        const title = chatRoom.isGroup ? chatRoom.name || 'Group Chat' : senderName;
+        const title = chatRoom.isGroup ? chatRoom.name || 'Group Chat' : `Message by ${senderName}`;
         let body;
 
         switch (messageType) {
@@ -303,7 +303,7 @@ const sendMessageNotification = async (chatRoomId, senderId, messageContent, mes
             default:
                 body = chatRoom.isGroup ?
                     `${senderName}: ${messageContent}` :
-                    messageContent;
+                    `message: ${messageContent}`;
         }
 
         // Send notifications to all recipients
