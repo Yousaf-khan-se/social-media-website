@@ -4,20 +4,13 @@ const nodemailer = require('nodemailer');
 const createTransporter = () => {
     // Check if email configuration is provided
     if (!process.env.EMAIL_HOST || !process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
-        console.warn('⚠️ Email configuration not found in environment variables');
-        console.warn('   For testing: Using ethereal email (fake SMTP service)');
+        console.log('⚠️ Email configuration not found in environment variables');
+        console.log('   For testing: Using ethereal email (fake SMTP service)');
 
         // For testing purposes, create a test account
         // In production, proper SMTP configuration should be provided
-        return nodemailer.createTransport({
-            host: 'smtp.ethereal.email',
-            port: 587,
-            secure: false,
-            auth: {
-                user: 'ethereal.user@ethereal.email', // This will fail but won't crash
-                pass: 'ethereal.pass'
-            }
-        });
+        throw new Error('Email configuration is missing. Please set EMAIL_HOST, EMAIL_USER, and EMAIL_PASS in your environment variables.');
+
     }
 
     return nodemailer.createTransport({
@@ -36,9 +29,9 @@ const sendEmail = async (options) => {
     try {
         // Check if email configuration is available
         if (!process.env.EMAIL_HOST || !process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
-            console.warn('⚠️ Email not sent - Missing email configuration');
-            console.warn('   Configure EMAIL_HOST, EMAIL_USER, EMAIL_PASS in .env file');
-            console.warn(`   For testing: OTP would be sent to ${options.to}`);
+            console.log('⚠️ Email not sent - Missing email configuration');
+            console.log('   Configure EMAIL_HOST, EMAIL_USER, EMAIL_PASS in .env file');
+            console.log(`   For testing: OTP would be sent to ${options.to}`);
 
             // For testing purposes, extract and log the OTP if present
             if (options.html && options.html.includes('OTP')) {
@@ -48,9 +41,7 @@ const sendEmail = async (options) => {
                     console.log('   Use this OTP in your test script');
                 }
             }
-
-            // Return success for testing (don't actually send email)
-            return { messageId: 'test-mode-message-id' };
+            throw new Error('Email configuration is missing. Please set EMAIL_HOST, EMAIL_USER, and EMAIL_PASS in your environment variables.');
         }
 
         const transporter = createTransporter();
