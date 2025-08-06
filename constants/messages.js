@@ -51,6 +51,9 @@ const SUCCESS_MESSAGES = {
     CHAT_PERMISSION_REQUEST_DENIED: 'Chat permission request denied',
     COMMENT_REPLY_ADDED: 'Comment reply added successfully',
     COMMENT_REPLY_DELETED: 'Comment reply deleted successfully',
+    PASSWORD_RESET_OTP_SENT: 'Password reset OTP sent to your email',
+    OTP_VERIFIED_SUCCESSFULLY: 'OTP verified successfully',
+    PASSWORD_RESET_SUCCESSFUL: 'Password has been reset successfully',
 };
 
 // Error Messages
@@ -99,6 +102,12 @@ const ERROR_MESSAGES = {
     CHAT_PERMISSION_REQUEST_FAILED: 'Failed to create chat permission request',
     CHAT_PERMISSION_RESPONSE_FAILED: 'Failed to respond to chat permission request',
     PROFILE_PRIVATE: 'This profile is private',
+    PASSWORD_RESET_FAILED: 'Failed to process password reset request',
+    OTP_SEND_FAILED: 'Failed to send OTP',
+    INVALID_OTP: 'Invalid or expired OTP',
+    OTP_REQUIRED: 'OTP is required',
+    OTP_EXPIRED: 'OTP has expired',
+    OTP_NOT_VERIFIED: 'OTP must be verified before password reset',
 };
 
 // Validation Messages
@@ -125,7 +134,10 @@ const VALIDATION_MESSAGES = {
     GROUP_NAME_REQUIRED: 'Group name is required for group chats',
     MESSAGE_CONTENT_REQUIRED: 'Message content is required',
     MESSAGE_CONTENT_TOO_LONG: 'Message content cannot exceed 1000 characters',
-    INVALID_MESSAGE_TYPE: 'Invalid message type'
+    INVALID_MESSAGE_TYPE: 'Invalid message type',
+    OTP_REQUIRED: 'OTP is required',
+    INVALID_OTP_FORMAT: 'OTP must be 6 digits',
+    NEW_PASSWORD_REQUIRED: 'New password is required'
 };
 
 module.exports = {

@@ -1,5 +1,11 @@
 const authService = require('../services/authService');
-const { validateRegistration, validateLogin } = require('../validators/authValidator');
+const {
+    validateRegistration,
+    validateLogin,
+    validateForgotPassword,
+    validateOTPVerification,
+    validateResetPassword
+} = require('../validators/authValidator');
 const ResponseHandler = require('../utils/responseHandler');
 const { ERROR_MESSAGES } = require('../constants/messages');
 
@@ -113,32 +119,75 @@ const refreshToken = async (req, res) => {
 // Forgot password
 const forgotPassword = async (req, res) => {
     try {
-        const { email } = req.body;
-        if (!email) {
-            return ResponseHandler.badRequest(res, 'Email is required');
+        // Validate request data
+        const validation = validateForgotPassword(req.body);
+        if (!validation.isValid) {
+            return ResponseHandler.validationError(res, validation.errors);
         }
 
-        const result = await authService.forgotPassword(email);
+        const { email, username } = req.body;
+        const result = await authService.forgotPassword(email, username);
+
         return ResponseHandler.success(res, result);
     } catch (error) {
         console.error('Forgot password error:', error);
-        return ResponseHandler.internalError(res, 'Failed to process password reset request');
+        return ResponseHandler.internalError(res, error.message || ERROR_MESSAGES.PASSWORD_RESET_FAILED);
+    }
+};
+
+// Verify OTP
+const verifyOTP = async (req, res) => {
+    try {
+        // Validate request data
+        const validation = validateOTPVerification(req.body);
+        if (!validation.isValid) {
+            return ResponseHandler.validationError(res, validation.errors);
+        }
+
+        const { email, otp } = req.body;
+        const result = await authService.verifyOTP(email, otp);
+
+        return ResponseHandler.success(res, result);
+    } catch (error) {
+        console.error('OTP verification error:', error);
+
+        // Handle specific OTP errors
+        if (error.message.includes('expired') || error.message.includes('not found')) {
+            return ResponseHandler.badRequest(res, ERROR_MESSAGES.OTP_EXPIRED);
+        }
+        if (error.message.includes('Invalid')) {
+            return ResponseHandler.badRequest(res, ERROR_MESSAGES.INVALID_OTP);
+        }
+
+        return ResponseHandler.internalError(res, error.message || ERROR_MESSAGES.INVALID_OTP);
     }
 };
 
 // Reset password
 const resetPassword = async (req, res) => {
     try {
-        const { token, newPassword } = req.body;
-        if (!token || !newPassword) {
-            return ResponseHandler.badRequest(res, 'Token and new password are required');
+        // Validate request data
+        const validation = validateResetPassword(req.body);
+        if (!validation.isValid) {
+            return ResponseHandler.validationError(res, validation.errors);
         }
 
-        const result = await authService.resetPassword(token, newPassword);
+        const { otp, newPassword } = req.body;
+        const result = await authService.resetPassword(otp, newPassword, req);
+
         return ResponseHandler.success(res, result);
     } catch (error) {
         console.error('Reset password error:', error);
-        return ResponseHandler.badRequest(res, 'Invalid or expired reset token');
+
+        // Handle specific reset password errors
+        if (error.message.includes('Invalid or expired OTP')) {
+            return ResponseHandler.badRequest(res, ERROR_MESSAGES.INVALID_OTP);
+        }
+        if (error.message.includes('not verified')) {
+            return ResponseHandler.badRequest(res, ERROR_MESSAGES.OTP_NOT_VERIFIED);
+        }
+
+        return ResponseHandler.badRequest(res, error.message || ERROR_MESSAGES.PASSWORD_RESET_FAILED);
     }
 };
 
@@ -179,6 +228,7 @@ module.exports = {
     logout,
     refreshToken,
     forgotPassword,
+    verifyOTP,
     resetPassword,
     changePassword,
     deleteAccount,

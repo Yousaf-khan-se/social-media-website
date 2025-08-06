@@ -19,6 +19,10 @@ const isValidName = (name) => {
     return name && name.trim().length > 0 && name.trim().length <= 50;
 };
 
+const isValidOTP = (otp) => {
+    return otp && /^\d{6}$/.test(otp);
+};
+
 // Registration validation
 const validateRegistration = (data) => {
     const errors = [];
@@ -77,11 +81,84 @@ const validateLogin = (data) => {
     };
 };
 
+// Forgot Password validation
+const validateForgotPassword = (data) => {
+    const errors = [];
+    const { email, username } = data;
+
+    if (!email && !username) {
+        errors.push(VALIDATION_MESSAGES.EMAIL_OR_USERNAME_REQUIRED);
+    }
+
+    if (email && !isValidEmail(email)) {
+        errors.push(VALIDATION_MESSAGES.INVALID_EMAIL);
+    }
+
+    if (username && !isValidUsername(username)) {
+        errors.push(VALIDATION_MESSAGES.USERNAME_TOO_SHORT);
+    }
+
+    return {
+        isValid: errors.length === 0,
+        errors
+    };
+};
+
+// OTP verification validation
+const validateOTPVerification = (data) => {
+    const errors = [];
+    const { email, otp } = data;
+
+    if (!email) {
+        errors.push(VALIDATION_MESSAGES.EMAIL_REQUIRED);
+    } else if (!isValidEmail(email)) {
+        errors.push(VALIDATION_MESSAGES.INVALID_EMAIL);
+    }
+
+    if (!otp) {
+        errors.push(VALIDATION_MESSAGES.OTP_REQUIRED);
+    } else if (!isValidOTP(otp)) {
+        errors.push(VALIDATION_MESSAGES.INVALID_OTP_FORMAT);
+    }
+
+    return {
+        isValid: errors.length === 0,
+        errors
+    };
+};
+
+// Reset password validation
+const validateResetPassword = (data) => {
+    const errors = [];
+    const { otp, newPassword } = data;
+
+    if (!otp) {
+        errors.push(VALIDATION_MESSAGES.OTP_REQUIRED);
+    } else if (!isValidOTP(otp)) {
+        errors.push(VALIDATION_MESSAGES.INVALID_OTP_FORMAT);
+    }
+
+    if (!newPassword) {
+        errors.push(VALIDATION_MESSAGES.NEW_PASSWORD_REQUIRED);
+    } else if (!isValidPassword(newPassword)) {
+        errors.push(VALIDATION_MESSAGES.PASSWORD_TOO_SHORT);
+    }
+
+    return {
+        isValid: errors.length === 0,
+        errors
+    };
+};
+
 module.exports = {
     validateRegistration,
     validateLogin,
+    validateForgotPassword,
+    validateOTPVerification,
+    validateResetPassword,
     isValidEmail,
     isValidUsername,
     isValidPassword,
-    isValidName
+    isValidName,
+    isValidOTP
 };

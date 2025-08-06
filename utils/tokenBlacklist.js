@@ -152,6 +152,85 @@ const cleanupExpiredTokens = async () => {
     }
 };
 
+// Add user to global invalidation list (invalidates all future tokens for this user)
+const invalidateUserSessions = async (userId) => {
+    try {
+        // Create a timestamp-based invalidation marker
+        const invalidationTime = Math.floor(Date.now() / 1000);
+        const userKey = `user_invalidated:${userId}`;
+
+        // Try Redis first (only if available)
+        if (isRedisAvailable && client) {
+            // Set with a long TTL (7 days)
+            await client.setEx(userKey, 7 * 24 * 60 * 60, invalidationTime.toString());
+            console.log(`Invalidated all sessions for user ${userId} via Redis`);
+            return;
+        }
+    } catch (error) {
+        isRedisAvailable = false;
+    }
+
+    // Fallback to in-memory storage
+    const userKey = `user_invalidated:${userId}`;
+    memoryBlacklist.add(userKey + ':' + Math.floor(Date.now() / 1000));
+    console.log(`Invalidated all sessions for user ${userId} via memory`);
+};
+
+// Check if all user sessions have been invalidated
+const areUserSessionsInvalidated = async (userId, tokenIssuedAt) => {
+    try {
+        const userKey = `user_invalidated:${userId}`;
+
+        // Try Redis first (only if available)
+        if (isRedisAvailable && client) {
+            const invalidationTime = await client.get(userKey);
+            if (invalidationTime) {
+                const invalidatedAt = parseInt(invalidationTime);
+                // If token was issued before invalidation, it's invalid
+                return tokenIssuedAt < invalidatedAt;
+            }
+            return false;
+        }
+    } catch (error) {
+        isRedisAvailable = false;
+    }
+
+    // Fallback to in-memory storage
+    // Check if any invalidation record exists for this user
+    for (const key of memoryBlacklist) {
+        if (key.startsWith(`user_invalidated:${userId}:`)) {
+            const invalidatedAt = parseInt(key.split(':').pop());
+            return tokenIssuedAt < invalidatedAt;
+        }
+    }
+    return false;
+};
+
+// Enhanced token blacklist check that also considers user session invalidation
+const isTokenBlacklistedOrUserInvalidated = async (token) => {
+    // First check if token is individually blacklisted
+    const isIndividuallyBlacklisted = await isTokenBlacklisted(token);
+    if (isIndividuallyBlacklisted) {
+        return true;
+    }
+
+    // Then check if all user sessions have been invalidated
+    try {
+        const decoded = jwt.decode(token);
+        if (decoded && decoded.userId && decoded.iat) {
+            const userSessionsInvalidated = await areUserSessionsInvalidated(decoded.userId, decoded.iat);
+            if (userSessionsInvalidated) {
+                return true;
+            }
+        }
+    } catch (error) {
+        // If token can't be decoded, consider it invalid
+        return true;
+    }
+
+    return false;
+};
+
 // Graceful shutdown
 const closeConnection = async () => {
     try {
@@ -167,6 +246,9 @@ const closeConnection = async () => {
 module.exports = {
     addToBlacklist,
     isTokenBlacklisted,
+    invalidateUserSessions,
+    areUserSessionsInvalidated,
+    isTokenBlacklistedOrUserInvalidated,
     cleanupExpiredTokens,
     getBlacklistSize,
     closeConnection

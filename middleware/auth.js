@@ -1,7 +1,7 @@
 const jwt = require('jsonwebtoken');
 const { ERROR_MESSAGES, HTTP_STATUS } = require('../constants/messages');
 const ResponseHandler = require('../utils/responseHandler');
-const { isTokenBlacklisted } = require('../utils/tokenBlacklist');
+const { isTokenBlacklistedOrUserInvalidated } = require('../utils/tokenBlacklist');
 const cookie = require('cookie');
 
 const authenticateToken = async (req, res, next) => {
@@ -13,9 +13,9 @@ const authenticateToken = async (req, res, next) => {
     }
 
     try {
-        // Check if token is blacklisted
-        const isBlacklisted = await isTokenBlacklisted(token);
-        if (isBlacklisted) {
+        // Check if token is blacklisted or user sessions are invalidated
+        const isInvalidated = await isTokenBlacklistedOrUserInvalidated(token);
+        if (isInvalidated) {
             return ResponseHandler.unauthorized(res, 'Token has been invalidated');
         }
 
@@ -48,9 +48,9 @@ const authenticateWsToken = async (socket, next) => {
             return next(new Error('Access token required'));
         }
 
-        // Check if token is blacklisted
-        const isBlacklisted = await isTokenBlacklisted(token);
-        if (isBlacklisted) {
+        // Check if token is blacklisted or user sessions are invalidated
+        const isInvalidated = await isTokenBlacklistedOrUserInvalidated(token);
+        if (isInvalidated) {
             return next(new Error('Token has been invalidated'));
         }
 

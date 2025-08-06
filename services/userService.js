@@ -15,7 +15,8 @@ cloudinary.config({
 // Check if user exists by email or username
 const findExistingUser = async (email, username) => {
     return await User.findOne({
-        $or: [{ email }, { username }]
+        $or: [{ email }, { username }],
+        deleted: { $ne: true } // Exclude soft-deleted users
     });
 };
 
@@ -30,19 +31,24 @@ const createUser = async (userData) => {
 };
 
 // Find user by email with password
-const findUserByEmailOrUsernameWithPassword = async (email, username) => {
-    const user = await User.findOne({ $or: [{ email }, { username }] }).select('+password');
+const findUserByEmailOrUsernameWithPassword = async (email, username, populate = true) => {
+    const user = await User.findOne({ $or: [{ email }, { username }], deleted: { $ne: true } })
     if (!user) return null;
-    return await user.populate([
-        { path: 'followers', select: 'username firstName lastName profilePicture isVerified' },
-        { path: 'following', select: 'username firstName lastName profilePicture isVerified' }
-    ]);
+
+    if (populate) {
+        return await user.populate([
+            { path: 'followers', select: 'username firstName lastName profilePicture isVerified' },
+            { path: 'following', select: 'username firstName lastName profilePicture isVerified' }
+        ]);
+    }
+
+    return user;
 };
 
 // Find user by ID
 const findUserById = async (userId) => {
     const user = await User.findById(userId);
-    if (!user) return null;
+    if (!user || user.deleted) return null;
     return await user.populate([
         { path: 'followers', select: 'username firstName lastName profilePicture isVerified' },
         { path: 'following', select: 'username firstName lastName profilePicture isVerified' }
@@ -70,9 +76,9 @@ const getConflictError = (existingUser, email) => {
 
 // Update user profile
 const updateUserProfile = async (userId, profileData) => {
-    const user = await User.findByIdAndUpdate(
-        userId,
-        profileData,
+    const user = await User.findOneAndUpdate(
+        { _id: userId, deleted: false },  // ✅ Only update if deleted is false
+        { $set: profileData },
         { new: true, runValidators: true }
     );
     if (!user) return null;

@@ -1,6 +1,8 @@
 const { generateToken } = require('../middleware/auth');
 const { sendEmail, emailTemplates } = require('../utils/email');
-const { addToBlacklist } = require('../utils/tokenBlacklist');
+const { addToBlacklist, invalidateUserSessions } = require('../utils/tokenBlacklist');
+const { getRequestInfo } = require('../utils/requestInfo');
+const otpStore = require('../utils/otpStore');
 const userService = require('./userService');
 const { ERROR_MESSAGES, SUCCESS_MESSAGES } = require('../constants/messages');
 const User = require('../models/User');
@@ -13,6 +15,7 @@ const chatService = require('./chatService');
 const postService = require('./postService');
 const settingsService = require('./settingsService');
 const notificationService = require('./notificationService');
+const bcrypt = require('bcrypt');
 require('dotenv').config();
 
 // Send welcome email (non-blocking)
@@ -310,28 +313,135 @@ const refreshToken = async (refreshToken) => {
     throw new Error('Refresh token functionality not yet implemented');
 };
 
-// Forgot password
-const forgotPassword = async (email) => {
+// Forgot password - Send OTP
+const forgotPassword = async (email, username) => {
     try {
-        const user = await User.findOne({ email });
-        if (!user) {
-            // Don't reveal if email exists for security
-            return { message: 'If email exists, password reset instructions have been sent' };
+        // Find user by email or username
+        const user = await userService.findUserByEmailOrUsernameWithPassword(email, username);
+        if (!user || user.deleted) {
+            throw new Error('Invalid username or email!');
         }
 
-        // Generate reset token (you'll need to implement this)
-        // Send email with reset link (you'll need to implement this)
-        return { message: 'Password reset instructions sent to email' };
+        // Generate and store OTP
+        const otp = otpStore.storeOTP(user.email, user.username);
+
+        // Send OTP email
+        try {
+            const otpEmail = emailTemplates.passwordResetOTP(user.fullName, otp);
+            await sendEmail({
+                to: user.email,
+                ...otpEmail
+            });
+
+            console.log(`Password reset OTP sent to ${user.email} for user ${user.username}`);
+        } catch (emailError) {
+            console.error('Failed to send OTP email:', emailError);
+            // Remove OTP if email failed
+            otpStore.removeOTP(user.email);
+            throw new Error('Failed to send reset email. Please try again later.');
+        }
+
+        return {
+            message: SUCCESS_MESSAGES.PASSWORD_RESET_OTP_SENT
+        };
     } catch (error) {
+        console.error('Forgot password error:', error);
         throw error;
     }
 };
 
-// Reset password
-const resetPassword = async (token, newPassword) => {
-    // Note: This is a placeholder - you'll need to implement reset token logic
-    // This would typically verify the reset token and update the password
-    throw new Error('Reset password functionality not yet implemented');
+// Verify OTP
+const verifyOTP = async (email, otp) => {
+    try {
+        // Verify OTP
+        const verificationResult = otpStore.verifyOTP(email, otp);
+
+        if (!verificationResult.success) {
+            throw new Error(verificationResult.message);
+        }
+
+        return {
+            message: SUCCESS_MESSAGES.OTP_VERIFIED_SUCCESSFULLY,
+            email: email,
+            username: otpStore.getOTPUsername(email)
+        };
+    } catch (error) {
+        console.error('OTP verification error:', error);
+        throw error;
+    }
+};
+
+// Reset password with OTP
+const resetPassword = async (otp, newPassword, req) => {
+    try {
+        // Find the email associated with this OTP
+        let userEmail = null;
+        let user = null;
+
+        // Search through stored OTPs to find matching one
+        // Note: This is a simple implementation. In production, you might want to optimize this
+        for (const [email, otpData] of otpStore.otps.entries()) {
+            if (otpStore.isOTPActive(email, otp)) {
+                userEmail = email;
+                break;
+            }
+        }
+
+        if (!userEmail) {
+            throw new Error('Invalid or expired OTP');
+        }
+
+        // Find user by email
+        user = await User.findOne({ email: userEmail });
+        if (!user || user.deleted) {
+            throw new Error('User not found, Account does not exist or has been deleted!');
+        }
+
+        // Hash the new password
+        const saltRounds = parseInt(process.env.BCRYPT_SALT_ROUNDS) || 12;
+        const hashedPassword = await bcrypt.hash(newPassword, saltRounds);
+
+        // Update password
+        user.password = hashedPassword;
+        await user.save();
+
+        // IMPORTANT: Invalidate ALL active sessions for this user for security
+        await invalidateUserSessions(user._id.toString());
+        console.log(`All active sessions invalidated for user ${user.username} after password reset`);
+
+        // Remove the used OTP
+        otpStore.removeOTP(userEmail);
+
+        // Get request information for security email
+        const requestInfo = getRequestInfo(req);
+
+        // Send password reset confirmation email
+        try {
+            const confirmationEmail = emailTemplates.passwordResetSuccess(
+                user.firstName,
+                requestInfo.deviceInfo,
+                requestInfo.location,
+                requestInfo.timestamp
+            );
+
+            await sendEmail({
+                to: user.email,
+                ...confirmationEmail
+            });
+
+            console.log(`Password reset successful for user ${user.username} from ${requestInfo.deviceInfo} at ${requestInfo.location}`);
+        } catch (emailError) {
+            console.error('Failed to send password reset confirmation email:', emailError);
+            // Don't throw error here as password was already reset successfully
+        }
+
+        return {
+            message: SUCCESS_MESSAGES.PASSWORD_RESET_SUCCESSFUL
+        };
+    } catch (error) {
+        console.error('Reset password error:', error);
+        throw error;
+    }
 };
 
 // Change password
@@ -355,6 +465,10 @@ const changePassword = async (userId, currentPassword, newPassword) => {
         // Update password
         user.password = hashedNewPassword;
         await user.save();
+
+        // IMPORTANT: Invalidate ALL active sessions for this user for security
+        await invalidateUserSessions(user._id.toString());
+        console.log(`All active sessions invalidated for user ${user.username} after password change`);
 
         return { message: 'Password changed successfully' };
     } catch (error) {
@@ -512,6 +626,7 @@ module.exports = {
     sendWelcomeEmail,
     refreshToken,
     forgotPassword,
+    verifyOTP,
     resetPassword,
     changePassword,
     deleteUserAccount,
