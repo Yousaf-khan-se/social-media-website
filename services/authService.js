@@ -196,15 +196,14 @@ const deleteUserAccount = async (userId) => {
         console.log('Updating user settings...');
         try {
             await Settings.findOneAndUpdate(
-                { userId: userId },
+                { user: userId }, // Changed from userId to user
                 {
-                    allowMessagesFrom: 'none',
-                    profileVisibility: 'private',
-                    allowTagging: false,
-                    allowMentions: false,
-                    emailNotifications: false,
-                    pushNotifications: false,
-                    smsNotifications: false
+                    'privacy.profileVisibility': 'private',
+                    'privacy.whoCanMessageMe': 'nobody',
+                    'privacy.whoCanFollowMe': 'manual_approval',
+                    'notifications.emailNotifications': false,
+                    'notifications.pushNotifications': false,
+                    'notifications.smsNotifications': false
                 },
                 { upsert: true }
             );
@@ -216,17 +215,21 @@ const deleteUserAccount = async (userId) => {
         console.log('Removing FCM tokens...');
         user.fcmTokens = [];
 
-        // 5. Clear email and password
-        console.log('Clearing sensitive data...');
-        user.email = '';
-        user.password = '';
+        // 5. Clear sensitive data and update identifying fields
+        console.log('Updating user data for deletion...');
 
-        // 6. Update bio , username, last name
-        user.bio = 'Account owner has deleted the account';
-        user.username = `${user.username} account deleted on ${new Date().toISOString()}`;
-        user.lastName = `${user.lastName} (account deleted)`;
+        // Generate a unique deleted username (keep it under 20 characters)
+        const timestamp = new Date().getTime().toString().slice(-8); // Last 8 digits of timestamp
+        const deletedUsername = `deleted_${timestamp}`;
 
-        // 7. Remove all followings and followers
+        // Update user fields while respecting schema constraints
+        user.email = `deleted_${timestamp}@deleted.local`; // Provide a valid email format
+        user.password = 'deleted_account_password_hash'; // Provide a valid password (will be meaningless)
+        user.username = deletedUsername; // Keep under 20 characters
+        user.bio = 'Account deleted';
+        user.lastName = `${user.lastName.substring(0, 15)} (deleted)`.substring(0, 50); // Ensure it fits in 50 chars
+
+        // 6. Remove all followings and followers
         console.log('Removing follow relationships...');
         const userFollowers = [...user.followers];
         const userFollowing = [...user.following];
@@ -247,42 +250,42 @@ const deleteUserAccount = async (userId) => {
         user.followers = [];
         user.following = [];
 
-        // 8. Set isOnline to false
+        // 7. Set isOnline to false
         user.isOnline = false;
         user.lastSeen = new Date();
 
-        // 9. Mark as deleted
+        // 8. Mark as deleted
         user.deleted = true;
 
-        // Save user changes
-        await user.save();
+        // Save user changes (skip validation for deleted accounts)
+        await user.save({ validateBeforeSave: false });
 
-        // 10. Handle chat rooms and messages
+        // 9. Handle chat rooms and messages
         console.log('Processing chat rooms and messages...');
 
         // Get all chat rooms where user is a participant
         const userChatRooms = await ChatRoom.find({ participants: userId });
 
         // Delete chat rooms for this user
+        console.log('Processing user chat rooms...');
         for (const chatRoom of userChatRooms) {
             try {
                 await chatService.deleteChatRoom(chatRoom._id, userId);
             } catch (chatError) {
                 console.error(`Error deleting chat room ${chatRoom._id}:`, chatError);
+                // Continue with other chat rooms even if one fails
             }
         }
 
         // Delete messages sent by this user
-        const userMessages = await Message.find({ sender: userId });
-        for (const message of userMessages) {
-            try {
-                await chatService.deleteMessage(message._id, userId);
-            } catch (messageError) {
-                console.error(`Error deleting message ${message._id}:`, messageError);
-            }
+        console.log('Processing user messages...');
+        try {
+            await chatService.deleteUserMessages(userId);
+        } catch (messageError) {
+            console.error('Error processing user messages:', messageError);
         }
 
-        // 11. Delete all notifications for the user
+        // 10. Delete all notifications for the user
         console.log('Deleting user notifications...');
         await Promise.allSettled([
             // Delete notifications sent to this user
@@ -296,7 +299,7 @@ const deleteUserAccount = async (userId) => {
 
     } catch (error) {
         console.error('Delete account error:', error);
-        throw new Error('Failed to delete account');
+        throw new Error(`Failed to delete account: ${error.message}`);
     }
 };
 
@@ -445,7 +448,7 @@ const cleanupDeletedUsers = async () => {
                     console.log(`Permanently deleting user ${user._id}...`);
 
                     // Delete user's settings
-                    await Settings.deleteOne({ userId: user._id });
+                    await Settings.deleteOne({ user: user._id });
 
                     // Delete the user permanently
                     await User.findByIdAndDelete(user._id);

@@ -449,6 +449,74 @@ const deleteMessage = async (messageId, userId) => {
     }
 };
 
+// Delete all messages sent by a user (for account deletion)
+const deleteUserMessages = async (userId) => {
+    try {
+        console.log(`Deleting all messages for user: ${userId}`);
+
+        // Find all messages sent by this user
+        const userMessages = await Message.find({ sender: userId }).populate('chatRoom');
+
+        for (const message of userMessages) {
+            try {
+                // Skip if chat room no longer exists or user is no longer a participant
+                if (!message.chatRoom || !message.chatRoom.participants.includes(userId)) {
+                    console.log(`Skipping message ${message._id} - chat room no longer accessible`);
+                    continue;
+                }
+
+                // For account deletion, we can directly modify the message without socket emission
+                console.log(`Processing message ${message._id} for user account deletion`);
+
+                // If message has media, delete from cloudinary
+                if (message.messageType !== 'text' && message.content && message.content.trim() !== '') {
+                    try {
+                        await deleteMediaFromCloudinaryByUrl(message.content);
+                    } catch (mediaError) {
+                        console.error(`Error deleting media for message ${message._id}:`, mediaError);
+                    }
+                }
+
+                // Change message content to indicate owner deleted their account
+                message.content = 'owner deleted their account.';
+                message.messageType = 'text';
+                message.caption = '';
+
+                // Add user to deletedFor array
+                if (!message.deletedFor) {
+                    message.deletedFor = [];
+                }
+                if (!message.deletedFor.includes(userId)) {
+                    message.deletedFor.push(userId);
+                }
+
+                await message.save();
+
+                // Update last message in chat room if this was the last message
+                const chatRoom = message.chatRoom;
+                if (chatRoom.lastMessage && chatRoom.lastMessage.toString() === message._id.toString()) {
+                    const lastMessage = await Message.findOne({ chatRoom: chatRoom._id })
+                        .sort({ createdAt: -1 });
+
+                    chatRoom.lastMessage = lastMessage ? lastMessage._id : null;
+                    await chatRoom.save();
+                }
+
+            } catch (messageError) {
+                console.error(`Error processing message ${message._id}:`, messageError);
+                // Continue with other messages even if one fails
+            }
+        }
+
+        console.log(`Completed processing messages for user: ${userId}`);
+        return { success: true, message: 'User messages processed for account deletion' };
+
+    } catch (error) {
+        console.error('Error deleting user messages:', error);
+        throw error;
+    }
+};
+
 // Upload media for chat
 const uploadMedia = async (roomId, mediaFiles) => {
     try {
@@ -651,6 +719,7 @@ module.exports = {
     getChatMessages,
     deleteChatRoom,
     deleteMessage,
+    deleteUserMessages,
     uploadMedia,
     deleteMediaFromCloudinary,
     deleteMediaFromCloudinaryByUrl
