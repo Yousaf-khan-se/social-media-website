@@ -19,7 +19,7 @@ const getAllowedOrigins = () => {
     }
 
     // Add localhost for development
-    origins.push('http://localhost:5173', 'http://localhost:5174', 'http://localhost:3000', 'https://social-media-website-frontend-pied.vercel.app');
+    origins.push('http://localhost:5173', 'http://localhost:5174', 'http://localhost:3000', 'https://hash-by-m-yousaf.vercel.app/');
 
     return origins;
 };
