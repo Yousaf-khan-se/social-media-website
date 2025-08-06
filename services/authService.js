@@ -66,10 +66,10 @@ const isProduction = process.env.NODE_ENV === 'production';
 
 // Login user
 const loginUser = async (res, credentials) => {
-    const { email, password } = credentials;
+    const { email, username, password } = credentials;
 
-    // Find user by email
-    let user = await userService.findUserByEmailWithPassword(email);
+    // Find user by email or username
+    let user = await userService.findUserByEmailOrUsernameWithPassword(email, username);
     if (!user) {
         throw new Error(ERROR_MESSAGES.INVALID_CREDENTIALS);
     }

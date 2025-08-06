@@ -105,6 +105,7 @@ const ERROR_MESSAGES = {
 const VALIDATION_MESSAGES = {
     USERNAME_REQUIRED: 'Username is required',
     EMAIL_REQUIRED: 'Email is required',
+    EMAIL_OR_USERNAME_REQUIRED: 'Email or username is required',
     PASSWORD_REQUIRED: 'Password is required',
     FIRST_NAME_REQUIRED: 'First name is required',
     LAST_NAME_REQUIRED: 'Last name is required',

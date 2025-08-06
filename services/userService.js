@@ -30,8 +30,8 @@ const createUser = async (userData) => {
 };
 
 // Find user by email with password
-const findUserByEmailWithPassword = async (email) => {
-    const user = await User.findOne({ email }).select('+password');
+const findUserByEmailOrUsernameWithPassword = async (email, username) => {
+    const user = await User.findOne({ $or: [{ email }, { username }] }).select('+password');
     if (!user) return null;
     return await user.populate([
         { path: 'followers', select: 'username firstName lastName profilePicture isVerified' },
@@ -388,7 +388,7 @@ const getSuggestedUsers = async (userId, limit = 10) => {
 module.exports = {
     findExistingUser,
     createUser,
-    findUserByEmailWithPassword,
+    findUserByEmailOrUsernameWithPassword,
     findUserById,
     updateLastLogin,
     getUserProfileData,

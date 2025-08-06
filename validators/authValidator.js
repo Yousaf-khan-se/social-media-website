@@ -59,11 +59,11 @@ const validateRegistration = (data) => {
 // Login validation
 const validateLogin = (data) => {
     const errors = [];
-    const { email, password } = data;
+    const { username, email, password } = data;
 
-    if (!email) {
-        errors.push(VALIDATION_MESSAGES.EMAIL_REQUIRED);
-    } else if (!isValidEmail(email)) {
+    if (!email && !username) {
+        errors.push(VALIDATION_MESSAGES.EMAIL_OR_USERNAME_REQUIRED);
+    } else if (email && !isValidEmail(email)) {
         errors.push(VALIDATION_MESSAGES.INVALID_EMAIL);
     }
 
