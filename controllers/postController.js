@@ -166,6 +166,12 @@ const getUserPosts = async (req, res) => {
             return ResponseHandler.validationError(res, paginationValidation.errors);
         }
 
+        // Fetch user data to check followers/followings
+        const user = await findUserById(userId);
+        if (!user) {
+            return ResponseHandler.notFound(res, 'User not found');
+        }
+
         const settings = await getUserSettings(userId);
         let visibility = null;
         let posts = [];
