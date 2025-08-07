@@ -2,6 +2,7 @@ const { generateToken } = require('../middleware/auth');
 const { sendEmail, emailTemplates } = require('../utils/email');
 const { addToBlacklist, invalidateUserSessions } = require('../utils/tokenBlacklist');
 const { getRequestInfo } = require('../utils/requestInfo');
+const { validateEmail, getValidationError } = require('../utils/abstractEmailValidator');
 const otpStore = require('../utils/otpStore');
 const userService = require('./userService');
 const { ERROR_MESSAGES, SUCCESS_MESSAGES } = require('../constants/messages');
@@ -36,16 +37,44 @@ const sendWelcomeEmail = async (email, firstName) => {
 const registerUser = async (userData) => {
     const { username, email, password, firstName, lastName } = userData;
 
-    // Check if user already exists
-    const existingUser = await userService.findExistingUser(email, username);
-    if (existingUser) {
-        throw new Error(userService.getConflictError(existingUser, email));
+    // Validate email using Abstract API
+    console.log('Validating email with Abstract API:', email);
+    const emailValidationResult = await validateEmail(email);
+
+    if (!emailValidationResult.isValid) {
+        const errorMessage = getValidationError(emailValidationResult);
+        console.log('Email validation failed:', errorMessage);
+        throw new Error(errorMessage || ERROR_MESSAGES.EMAIL_FORMAT_INVALID);
     }
 
-    // Create new user
+    // Log validation results for debugging
+    console.log('Email validation passed:', {
+        email: emailValidationResult.email,
+        deliverability: emailValidationResult.validationDetails.deliverability,
+        qualityScore: emailValidationResult.validationDetails.qualityScore,
+        autoCorrect: emailValidationResult.autoCorrect,
+        fallback: emailValidationResult.fallback || false
+    });
+
+    // Use auto-corrected email if suggested and different
+    const finalEmail = emailValidationResult.autoCorrect &&
+        emailValidationResult.autoCorrect !== email ?
+        emailValidationResult.autoCorrect : email;
+
+    if (finalEmail !== email) {
+        console.log(`Email auto-corrected from ${email} to ${finalEmail}`);
+    }
+
+    // Check if user already exists with the validated email
+    const existingUser = await userService.findExistingUser(finalEmail, username);
+    if (existingUser) {
+        throw new Error(userService.getConflictError(existingUser, finalEmail));
+    }
+
+    // Create new user with validated email
     let user = await userService.createUser({
         username,
-        email,
+        email: finalEmail,
         password,
         firstName,
         lastName
@@ -56,11 +85,18 @@ const registerUser = async (userData) => {
         { path: 'following', select: 'username firstName lastName profilePicture isVerified' }
     ]);
 
-    // Send welcome email (non-blocking)
+    // Send welcome email (non-blocking) using the validated email
     sendWelcomeEmail(user.email, user.firstName);
 
     return {
         message: SUCCESS_MESSAGES.USER_REGISTERED,
+        emailValidation: {
+            originalEmail: email,
+            validatedEmail: finalEmail,
+            autoCorrect: emailValidationResult.autoCorrect,
+            qualityScore: emailValidationResult.validationDetails.qualityScore,
+            deliverability: emailValidationResult.validationDetails.deliverability
+        }
         // user: userService.getUserProfileData(user)
     };
 };

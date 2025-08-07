@@ -108,6 +108,10 @@ const ERROR_MESSAGES = {
     OTP_REQUIRED: 'OTP is required',
     OTP_EXPIRED: 'OTP has expired',
     OTP_NOT_VERIFIED: 'OTP must be verified before password reset',
+    EMAIL_VALIDATION_FAILED: 'Email validation failed',
+    EMAIL_UNDELIVERABLE: 'This email address appears to be undeliverable',
+    DISPOSABLE_EMAIL_NOT_ALLOWED: 'Temporary or disposable email addresses are not allowed',
+    EMAIL_FORMAT_INVALID: 'Please provide a valid email address format',
 };
 
 // Validation Messages
