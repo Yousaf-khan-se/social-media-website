@@ -146,7 +146,8 @@ module.exports = function registerChatSocket(io) {
                     roomId,
                     socket.user.userId,
                     content,
-                    messageType
+                    messageType,
+                    message._id.toString()
                 ).catch(err => console.error('Message notification error:', err));
 
             } catch (error) {

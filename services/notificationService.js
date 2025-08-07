@@ -105,7 +105,12 @@ const sendPushNotification = async (userId, notification) => {
             type: notification.type,
             title: notification.title,
             body: notification.body,
-            data: notification.data,
+            data: {
+                postId: notification.data?.postId,
+                chatRoomId: notification.data?.chatRoomId,
+                messageId: notification.data?.messageId,
+                commentId: notification.data?.commentId
+            },
             isDelivered: response.successCount > 0,
             deliveredAt: response.successCount > 0 ? new Date() : null,
             fcmResponse: {
@@ -143,12 +148,17 @@ const sendPushNotification = async (userId, notification) => {
         // Still save the notification even if FCM fails
         try {
             const notificationDoc = new Notification({
-                recipient: userId,
-                sender: notification.senderId,
+                recipient: notification.recipient || userId,
+                sender: notificationData.senderId || notification.sender?._id || notification.sender,
                 type: notification.type,
                 title: notification.title,
                 body: notification.body,
-                data: notification.data,
+                data: {
+                    postId: notification.data?.postId,
+                    chatRoomId: notification.data?.chatRoomId,
+                    messageId: notification.data?.messageId,
+                    commentId: notification.data?.commentId
+                },
                 isDelivered: false,
                 fcmResponse: {
                     error: error.message
@@ -168,11 +178,16 @@ const createNotification = async (notificationData, sendPush = true) => {
         if (!sendPush) {
             const notificationDoc = new Notification({
                 recipient: notificationData.recipient,
-                sender: notificationData.sender,
+                sender: notificationData.senderId || notification.sender?._id || notification.sender,
                 type: notificationData.type,
                 title: notificationData.title,
                 body: notificationData.body,
-                data: notificationData.data || {},
+                data: {
+                    postId: notification.data?.postId,
+                    chatRoomId: notification.data?.chatRoomId,
+                    messageId: notification.data?.messageId,
+                    commentId: notification.data?.commentId
+                } || {},
                 isDelivered: false
             });
             await notificationDoc.save();
@@ -247,6 +262,7 @@ const sendPostNotification = async (postId, senderId, recipientId, type, additio
             body,
             type,
             senderId,
+            receipient: recipientId,
             data: {
                 postId: postId.toString(),
                 senderId: senderId.toString(),
@@ -262,7 +278,7 @@ const sendPostNotification = async (postId, senderId, recipientId, type, additio
     }
 };
 
-const sendMessageNotification = async (chatRoomId, senderId, messageContent, messageType = 'text') => {
+const sendMessageNotification = async (chatRoomId, senderId, messageContent, messageType = 'text', messageId) => {
     try {
         const [sender, chatRoom] = await Promise.all([
             User.findById(senderId).select('firstName lastName username profilePicture isOnline'),
@@ -326,13 +342,16 @@ const sendMessageNotification = async (chatRoomId, senderId, messageContent, mes
 
         // Send notifications to all recipients
         const notificationPromises = finalRecipients.map(recipient =>
-            sendPushNotification(recipient._id.toString(), {
+            sendPushNotification((recipient?._id.toString() || recipient.toString()), {
                 title,
                 body,
                 type: 'message',
                 senderId,
+                sender: senderId,
+                receipient: recipient?._id.toString() || recipient.toString(),
                 data: {
                     chatRoomId: chatRoomId.toString(),
+                    messageId: messageId ? messageId.toString() : undefined,
                     senderId: senderId.toString(),
                     senderName,
                     senderProfilePicture: sender.profilePicture || '',
@@ -385,11 +404,13 @@ const sendChatCreatedNotification = async (chatRoomId, creatorId) => {
 
         // Send notifications to all recipients
         const notificationPromises = recipients.map(recipient =>
-            sendPushNotification(recipient._id.toString(), {
+            sendPushNotification((recipient?._id.toString() || recipient.toString()), {
                 title,
                 body,
                 type: chatRoom.isGroup ? 'group_created' : 'chat_created',
                 senderId: creatorId,
+                sender: creatorId,
+                receipient: recipient?._id.toString() || recipient.toString(),
                 data: {
                     chatRoomId: chatRoomId.toString(),
                     senderId: creatorId.toString(),
@@ -433,6 +454,8 @@ const sendGroupAddedNotification = async (chatRoomId, adderId, addedUserId) => {
             body,
             type: 'group_added',
             senderId: adderId,
+            sender: adderId,
+            receipient: addedUserId,
             data: {
                 chatRoomId: chatRoomId.toString(),
                 senderId: adderId.toString(),
@@ -463,6 +486,8 @@ const sendFollowNotification = async (followerId, followedId) => {
             body: `${followerName} started following you`,
             type: 'follow',
             senderId: followerId,
+            sender: followerId,
+            receipient: followedId,
             data: {
                 senderId: followerId.toString(),
                 senderName: followerName,

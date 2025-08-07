@@ -42,18 +42,22 @@ const notificationSchema = new mongoose.Schema({
         // Additional data based on notification type
         postId: {
             type: mongoose.Schema.Types.ObjectId,
-            ref: 'Post'
+            ref: 'Post',
+            default: null
         },
         chatRoomId: {
             type: mongoose.Schema.Types.ObjectId,
-            ref: 'ChatRoom'
+            ref: 'ChatRoom',
+            default: null
         },
         messageId: {
             type: mongoose.Schema.Types.ObjectId,
-            ref: 'Message'
+            ref: 'Message',
+            default: null
         },
         commentId: {
-            type: mongoose.Schema.Types.ObjectId
+            type: mongoose.Schema.Types.ObjectId,
+            default: null
         }
     },
     isRead: {
