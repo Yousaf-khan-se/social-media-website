@@ -65,6 +65,24 @@ const registerUser = async (userData) => {
     };
 };
 
+// Get user profile
+const getUserProfile = async (userId) => {
+    let user = await userService.findUserById(userId);
+    if (!user) {
+        throw new Error(ERROR_MESSAGES.USER_NOT_FOUND);
+    }
+
+    // Fully populate followers and following
+    user = await user.populate([
+        { path: 'followers', select: 'username firstName lastName profilePicture isVerified' },
+        { path: 'following', select: 'username firstName lastName profilePicture isVerified' }
+    ]);
+
+    return {
+        user: userService.getUserProfileData(user)
+    };
+};
+
 const isProduction = process.env.NODE_ENV === 'production';
 
 // Login user
@@ -108,29 +126,17 @@ const loginUser = async (res, credentials) => {
     };
 };
 
-// Get user profile
-const getUserProfile = async (userId) => {
-    let user = await userService.findUserById(userId);
-    if (!user) {
-        throw new Error(ERROR_MESSAGES.USER_NOT_FOUND);
-    }
-
-    // Fully populate followers and following
-    user = await user.populate([
-        { path: 'followers', select: 'username firstName lastName profilePicture isVerified' },
-        { path: 'following', select: 'username firstName lastName profilePicture isVerified' }
-    ]);
-
-    return {
-        user: userService.getUserProfileData(user)
-    };
-};
-
 // Logout user (blacklist token)
-const logoutUser = async (token) => {
+const logoutUser = async (re, token) => {
     try {
         // Add token to blacklist
         await addToBlacklist(token);
+
+        res.clearCookie('token', {
+            httpOnly: true,
+            secure: isProduction,
+            sameSite: isProduction ? 'None' : 'Lax',
+        });
 
         return {
             message: 'Logout successful'

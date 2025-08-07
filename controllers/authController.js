@@ -36,6 +36,26 @@ const register = async (req, res) => {
     }
 };
 
+
+// Get current user profile
+const getProfile = async (req, res) => {
+    try {
+        const result = await authService.getUserProfile(req.user.userId);
+        console.log('Profile fetched successfully:', result);
+        return ResponseHandler.success(res, result);
+
+    } catch (error) {
+        console.error('Profile fetch error:', error);
+
+        // Handle known errors
+        if (error.message === ERROR_MESSAGES.USER_NOT_FOUND) {
+            return ResponseHandler.notFound(res, error.message);
+        }
+
+        return ResponseHandler.internalError(res, ERROR_MESSAGES.PROFILE_FETCH_FAILED);
+    }
+};
+
 // Login user
 const login = async (req, res) => {
     try {
@@ -62,29 +82,10 @@ const login = async (req, res) => {
     }
 };
 
-// Get current user profile
-const getProfile = async (req, res) => {
-    try {
-        const result = await authService.getUserProfile(req.user.userId);
-        console.log('Profile fetched successfully:', result);
-        return ResponseHandler.success(res, result);
-
-    } catch (error) {
-        console.error('Profile fetch error:', error);
-
-        // Handle known errors
-        if (error.message === ERROR_MESSAGES.USER_NOT_FOUND) {
-            return ResponseHandler.notFound(res, error.message);
-        }
-
-        return ResponseHandler.internalError(res, ERROR_MESSAGES.PROFILE_FETCH_FAILED);
-    }
-};
-
 // Logout user
 const logout = async (req, res) => {
     try {
-        const result = await authService.logoutUser(req.token);
+        const result = await authService.logoutUser(res, req.token);
 
         return ResponseHandler.success(res, result);
 
