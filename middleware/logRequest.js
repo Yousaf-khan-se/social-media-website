@@ -19,11 +19,11 @@ module.exports = (req, res, next) => {
         console.log('📄 Auth Header: Provided (legacy or fallback)');
     }
 
-    if (req.headers && Object.keys(req.headers).length > 0) {
-        console.log('📝 Headers:', req.headers);
-    } else {
-        console.log('📝 Headers: None');
-    }
+    // if (req.headers && Object.keys(req.headers).length > 0) {
+    //     console.log('📝 Headers:', req.headers);
+    // } else {
+    //     console.log('📝 Headers: None');
+    // }
 
     // 📦 Request body
     if (Object.keys(req.body || {}).length > 0) {

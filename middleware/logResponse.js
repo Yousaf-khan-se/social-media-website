@@ -33,12 +33,12 @@ function logResponseDetails(req, res, data, method) {
     console.log(`⬅️ ${req.method} ${req.originalUrl} - Status: ${res.statusCode}`);
 
     // 📋 Response Headers
-    const headers = res.getHeaders();
-    if (Object.keys(headers).length > 0) {
-        console.log('📋 Response Headers:', headers);
-    } else {
-        console.log('📋 Response Headers: None set');
-    }
+    // const headers = res.getHeaders();
+    // if (Object.keys(headers).length > 0) {
+    //     console.log('📋 Response Headers:', headers);
+    // } else {
+    //     console.log('📋 Response Headers: None set');
+    // }
 
     // 📦 Response Body
     if (data) {

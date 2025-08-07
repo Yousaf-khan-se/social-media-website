@@ -397,12 +397,8 @@ const resetPassword = async (otp, newPassword, req) => {
             throw new Error('User not found, Account does not exist or has been deleted!');
         }
 
-        // Hash the new password
-        const saltRounds = parseInt(process.env.BCRYPT_SALT_ROUNDS) || 12;
-        const hashedPassword = await bcrypt.hash(newPassword, saltRounds);
-
-        // Update password
-        user.password = hashedPassword;
+        // Update password (let the User model's pre-save middleware handle hashing for consistency)
+        user.password = newPassword;
         await user.save();
 
         // IMPORTANT: Invalidate ALL active sessions for this user for security
@@ -458,12 +454,8 @@ const changePassword = async (userId, currentPassword, newPassword) => {
             throw new Error('Invalid current password');
         }
 
-        // Hash new password
-        const saltRounds = parseInt(process.env.BCRYPT_SALT_ROUNDS) || 12;
-        const hashedNewPassword = await bcrypt.hash(newPassword, saltRounds);
-
-        // Update password
-        user.password = hashedNewPassword;
+        // Update password (let the User model's pre-save middleware handle hashing for consistency)
+        user.password = newPassword;
         await user.save();
 
         // IMPORTANT: Invalidate ALL active sessions for this user for security
