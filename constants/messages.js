@@ -51,7 +51,7 @@ const SUCCESS_MESSAGES = {
     CHAT_PERMISSION_REQUEST_DENIED: 'Chat permission request denied',
     COMMENT_REPLY_ADDED: 'Comment reply added successfully',
     COMMENT_REPLY_DELETED: 'Comment reply deleted successfully',
-    PASSWORD_RESET_OTP_SENT: 'Password reset OTP sent to your email',
+    PASSWORD_RESET_OTP_SENT: 'Password reset OTP sent to your email. The OTP will expire in 60 secs',
     OTP_VERIFIED_SUCCESSFULLY: 'OTP verified successfully',
     PASSWORD_RESET_SUCCESSFUL: 'Password has been reset successfully',
 };

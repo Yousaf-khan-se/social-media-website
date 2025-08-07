@@ -4,7 +4,8 @@
 class OTPStore {
     constructor() {
         this.otps = new Map(); // Map<email, { otp, createdAt, isActive, expiresAt }>
-        this.EXPIRY_TIME = 12.5 * 60 * 1000; // 12 minutes 30 seconds in milliseconds
+        this.ACTIVATION_TIME = 61 * 1000; // 61 seconds in milliseconds
+        this.EXPIRY_TIME = 12.1 * 60 * 1000; // 12 minutes 10 seconds in milliseconds
 
         // Clean up expired OTPs every 5 minutes
         setInterval(() => {
@@ -21,7 +22,7 @@ class OTPStore {
     storeOTP(email, username, otp = null) {
         const otpCode = otp || this.generateOTP();
         const now = new Date();
-        const expiresAt = new Date(now.getTime() + this.EXPIRY_TIME);
+        const expiresAt = new Date(now.getTime() + this.ACTIVATION_TIME);
 
         this.otps.set(email, {
             otp: otpCode,
@@ -55,6 +56,7 @@ class OTPStore {
 
         // Mark OTP as active
         storedOTP.isActive = true;
+        storedOTP.expiresAt = new Date(new Date().getTime() + this.EXPIRY_TIME); // Extend expiry after verification
         this.otps.set(email, storedOTP);
 
         return { success: true, message: 'OTP verified successfully' };
