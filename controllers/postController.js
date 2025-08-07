@@ -175,8 +175,10 @@ const getUserPosts = async (req, res) => {
         const settings = await getUserSettings(userId);
         let visibility = null;
         let posts = [];
-        const theyFollowed = user.followers.includes(req.user.userId);
-        const youFollowed = user.followings.includes(req.user.userId);
+
+        // Handle cases where followers/following arrays might be undefined
+        const theyFollowed = user.followers && user.followers.includes(req.user.userId);
+        const youFollowed = user.following && user.following.includes(req.user.userId);
 
         if (settings.profileVisibility === 'private' && req.user.userId !== userId && !theyFollowed) {
             visibility = 'private';
