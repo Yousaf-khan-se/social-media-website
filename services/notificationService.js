@@ -2,9 +2,21 @@ const admin = require('../config/firebase');
 const Notification = require('../models/Notification');
 const User = require('../models/User');
 const Settings = require('../models/Settings');
+const { checkNotificationRateLimit } = require('../utils/notificationRateLimit');
 
 const sendPushNotification = async (userId, notification) => {
     try {
+        // Check rate limiting
+        if (!checkNotificationRateLimit(userId, 10, 60000)) {
+            console.warn(`Rate limit exceeded for user ${userId}, skipping notification`);
+            return {
+                success: false,
+                delivered: 0,
+                failed: 1,
+                rateLimited: true
+            };
+        }
+
         // Get user's FCM tokens and notification settings
         const user = await User.findById(userId).select('fcmTokens');
         if (!user) {
@@ -66,7 +78,13 @@ const sendPushNotification = async (userId, notification) => {
         try {
             response = await admin.messaging().sendEachForMulticast(fcmMessage);
             if (response.failureCount > 0) {
-                throw new Error('Something went wrong on firebase while sending notification. response: ' + JSON.stringify(response.responses));
+                console.warn(`FCM partial failure: ${response.failureCount}/${response.responses.length} tokens failed`);
+                // Don't throw error for partial failures, log and continue
+                response.responses.forEach((resp, index) => {
+                    if (!resp.success && resp.error) {
+                        console.error(`Token ${index} failed:`, resp.error);
+                    }
+                });
             }
         } catch (error) {
             console.error('FCM send error:', error);
@@ -390,6 +408,47 @@ const sendChatCreatedNotification = async (chatRoomId, creatorId) => {
     }
 };
 
+const sendGroupAddedNotification = async (chatRoomId, adderId, addedUserId) => {
+    try {
+        // Don't send notification to yourself
+        if (adderId === addedUserId) return null;
+
+        const [adder, chatRoom] = await Promise.all([
+            User.findById(adderId).select('firstName lastName username profilePicture'),
+            require('../models/ChatRoom').findById(chatRoomId).select('name isGroup')
+        ]);
+
+        if (!adder || !chatRoom || !chatRoom.isGroup) return null;
+
+        // Check notification settings
+        const settings = await Settings.findOne({ user: addedUserId }).select('notifications');
+        if (!settings || !settings.notifications.groupChats) return null;
+
+        const adderName = `${adder.firstName} ${adder.lastName}`;
+        const title = 'Added to Group';
+        const body = `${adderName} added you to "${chatRoom.name || 'Unnamed Group'}"`;
+
+        return await sendPushNotification(addedUserId, {
+            title,
+            body,
+            type: 'group_added',
+            senderId: adderId,
+            data: {
+                chatRoomId: chatRoomId.toString(),
+                senderId: adderId.toString(),
+                senderName: adderName,
+                senderProfilePicture: adder.profilePicture || '',
+                isGroup: 'true',
+                chatName: chatRoom.name || ''
+            }
+        });
+
+    } catch (error) {
+        console.error('Error sending group added notification:', error);
+        return null;
+    }
+};
+
 const sendFollowNotification = async (followerId, followedId) => {
     try {
         if (followerId === followedId) return null;
@@ -527,6 +586,7 @@ module.exports = {
     sendPostNotification,
     sendMessageNotification,
     sendChatCreatedNotification,
+    sendGroupAddedNotification,
     sendFollowNotification,
     addFCMToken,
     removeFCMToken,

@@ -53,7 +53,7 @@ const createChatRoom = async (participants, isGroup = false, name = '', creatorI
             // Send notifications for new participants
             const notificationService = require('./notificationService');
             newParticipants.forEach(participantId => {
-                notificationService.sendChatCreatedNotification(roomId, creatorId, participantId)
+                notificationService.sendGroupAddedNotification(roomId, creatorId, participantId)
                     .catch(err => console.error('Chat participant notification error:', err));
             });
 

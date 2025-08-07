@@ -25,7 +25,7 @@ router.get('/',
     [
         query('page').optional().isInt({ min: 1 }).withMessage('Page must be a positive integer'),
         query('limit').optional().isInt({ min: 1, max: 100 }).withMessage('Limit must be between 1 and 100'),
-        query('type').optional().isIn(['like', 'comment', 'share', 'follow', 'message', 'chat_created', 'group_created', 'group_added']).withMessage('Invalid notification type'),
+        query('type').optional().isIn(['like', 'comment', 'share', 'follow', 'message', 'chat_created', 'group_created', 'group_added', 'chat_permission_request']).withMessage('Invalid notification type'),
         query('unreadOnly').optional().isBoolean().withMessage('unreadOnly must be a boolean')
     ],
     handleValidationErrors,
@@ -69,7 +69,7 @@ router.delete('/fcm-token',
 // Check FCM token
 router.get('/fcm-token/check',
     [
-        body('token').notEmpty().withMessage('FCM token is required')
+        query('token').notEmpty().withMessage('FCM token is required')
     ],
     handleValidationErrors,
     notificationController.checkFCMToken

@@ -214,7 +214,7 @@ const removeFCMToken = async (req, res) => {
 
 const checkFCMToken = async (req, res) => {
     try {
-        const { token } = req.body;
+        const { token } = req.query;
         const userId = req.user.userId;
 
         if (!token) {
@@ -230,8 +230,8 @@ const checkFCMToken = async (req, res) => {
         });
 
     } catch (error) {
-        console.error('Remove FCM token error:', error);
-        return ResponseHandler.internalError(res, 'Failed to remove FCM token');
+        console.error('Check FCM token error:', error);
+        return ResponseHandler.internalError(res, 'Failed to check FCM token');
     }
 };
 
