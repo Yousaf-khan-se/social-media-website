@@ -30,8 +30,15 @@ const validateRegistration = (data) => {
 
     if (!username) {
         errors.push(VALIDATION_MESSAGES.USERNAME_REQUIRED);
-    } else if (!isValidUsername(username)) {
-        errors.push(VALIDATION_MESSAGES.USERNAME_TOO_SHORT);
+    } else {
+        // More specific username validation
+        if (username.length < 3) {
+            errors.push(VALIDATION_MESSAGES.USERNAME_TOO_SHORT);
+        } else if (username.length > 20) {
+            errors.push(VALIDATION_MESSAGES.USERNAME_TOO_LONG);
+        } else if (!/^[a-zA-Z0-9_]+$/.test(username)) {
+            errors.push(VALIDATION_MESSAGES.USERNAME_INVALID_CHARS);
+        }
     }
 
     if (!email) {

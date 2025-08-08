@@ -125,6 +125,8 @@ const VALIDATION_MESSAGES = {
     INVALID_EMAIL: 'Please provide a valid email address',
     PASSWORD_TOO_SHORT: 'Password must be at least 6 characters long',
     USERNAME_TOO_SHORT: 'Username must be at least 3 characters long',
+    USERNAME_TOO_LONG: 'Username cannot exceed 20 characters',
+    USERNAME_INVALID_CHARS: 'Username can only contain letters, numbers, and underscores',
     POST_CONTENT_REQUIRED: 'Post content is required',
     POST_CONTENT_TOO_LONG: 'Post content cannot exceed 2000 characters',
     COMMENT_CONTENT_REQUIRED: 'Comment content is required',
