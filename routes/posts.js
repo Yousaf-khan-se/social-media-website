@@ -16,7 +16,7 @@ router.get('/user/:userId', postController.getUserPosts);     // Get specific us
 router.get('/:postId', postController.getPost);               // Get specific post
 router.put('/:postId', postController.updatePost);            // Update post
 router.delete('/:postId', postController.deletePost);         // Delete post
-router.put('/media/:postId', postController.addMediaToPost);   // Upload images
+router.put('/media/:postId', postController.addMediaToPost);   // Upload any images and videos
 
 // Post interactions
 router.post('/:postId/like', postController.toggleLike);      // Like/Unlike post

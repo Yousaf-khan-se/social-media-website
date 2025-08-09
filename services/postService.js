@@ -76,6 +76,47 @@ const getPublicPosts = async (page = 1, limit = 10) => {
 
 // Update post
 const updatePost = async (postId, updateData) => {
+    const post = await getPostById(postId);
+    if (!post) {
+        throw new Error(ERROR_MESSAGES.POST_NOT_FOUND || 'Post not found');
+    }
+
+    // Check if media array is being updated and handle media deletion
+    if (updateData.media !== undefined) {
+        const currentMedia = post.media || [];
+        const newMedia = updateData.media || [];
+
+        // Find media that exists in current post but not in the update data
+        const mediaToDelete = currentMedia.filter(currentMediaItem => {
+            // Check if this media item is not present in the new media array
+            return !newMedia.some(newMediaItem =>
+                newMediaItem.public_id === currentMediaItem.public_id ||
+                currentMediaItem.secure_url === newMediaItem.secure_url
+            );
+        });
+
+        // Delete removed media from Cloudinary
+        if (mediaToDelete.length > 0) {
+            console.log(`Deleting ${mediaToDelete.length} media items from Cloudinary`);
+
+            const mediaDeletePromises = mediaToDelete.map(async (media) => {
+                try {
+                    if (media.public_id) {
+                        console.log(`Deleting media from Cloudinary: ${media.public_id}`);
+                        await deleteMediaFromCloudinary(media.public_id, media.resource_type || 'image');
+                        console.log(`Successfully deleted media: ${media.public_id}`);
+                    }
+                } catch (mediaError) {
+                    console.error(`Error deleting media ${media.public_id} from Cloudinary:`, mediaError);
+                    // Continue with update even if some media fails to delete
+                }
+            });
+
+            // Wait for all media deletion attempts to complete
+            await Promise.allSettled(mediaDeletePromises);
+        }
+    }
+
     return await Post.findByIdAndUpdate(
         postId,
         updateData,
